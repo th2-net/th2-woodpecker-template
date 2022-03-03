@@ -73,11 +73,13 @@ spec:
       attributes:
         - subscribe
         - in
+        - group
     - name: out_messages
       connection-type: mq
       attributes:
         - publish
         - out
+        - group
   extended-settings:
     service:
       enabled: false
