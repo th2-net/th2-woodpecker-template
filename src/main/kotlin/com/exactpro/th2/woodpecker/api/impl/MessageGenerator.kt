@@ -34,12 +34,11 @@ import com.exactpro.th2.woodpecker.api.IMessageGeneratorSettings
 import java.time.Instant
 import java.time.LocalDateTime
 import java.util.UUID.randomUUID
+import kotlin.random.Random
 
 class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
     private val builder = MessageGroup.newBuilder().apply {
         addMessagesBuilder().message = settings.fields.toProtoBuilder().apply {
-            messageType = settings.messageType
-            sessionAlias = settings.sessionAlias
             direction = SECOND
             sequence = System.currentTimeMillis() * 1_000_000L
 
@@ -50,11 +49,16 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
         }.build()
     }
 
-    private val securityIdSource = (('1'..'9') + ('A'..'L')).toGenerator()
-    private val ordType = (('1'..'9') + ('A'..'Q')).toGenerator()
-    private val accountType = ('1'..'8').toList().toGenerator()
-    private val orderCapacity = listOf('A', 'G', 'I', 'P', 'R', 'W').toGenerator()
-    private val side = (('1'..'9') + ('A'..'G')).toGenerator()
+    private val messageTypeGenerator: () -> String
+    private val securityIDGenerator: () -> String
+    private val securityIdSource = listOf('8').toGeneratorRnd() // ('1'..'9') + ('A'..'L')
+    private val traderGenerator: () -> Trader
+    private val ordType = listOf('2').toGeneratorRnd() // ('1'..'9') + ('A'..'Q')
+    private val accountType = listOf('1').toGeneratorRnd() // ('1'..'8')
+    private val orderCapacity = listOf('A').toGeneratorRnd() // listOf('A', 'G', 'I', 'P', 'R', 'W')
+    private val side = listOf('1', '2').toGeneratorRnd() // ('1'..'9') + ('A'..'G')
+    private val quantity: Int?
+    private val price: Int?
 
     private val transactTimeValue: LocalDateTime?
     private val transactTimeSecondsShift: Long?
@@ -62,32 +66,70 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
     init {
         val generators = settings.generators
 
-        val genTransactTime = generators["TransactTime"] as? Map<*, *>
-        transactTimeValue = genTransactTime?.get("value")?.toString()?.run(LocalDateTime::parse)
-        transactTimeSecondsShift = genTransactTime?.get("current")?.toString()?.toLong()
+        messageTypeGenerator = ((generators["MessageType"] as? List<*>)?.filterIsInstance<String>() ?: listOf("NewOrderSingle")).toGeneratorRnd()
+
+        securityIDGenerator = ((generators["SecurityID"] as? List<*>)?.filterIsInstance<String>()
+            ?: listOf(randomUUID().toString()))
+            .toGeneratorRnd()
+
+        traderGenerator = arrayListOf<Trader>().run {
+            (generators["Traders"] as? List<*>)?.filterIsInstance<Map<*, *>>()
+                ?.forEach { item -> item
+                    .asSequence()
+                    .filter { (key, value) -> key is String && value is String }
+                    .associate { (key, value) -> key as String to value as String }
+                    .let {
+                        if (it.containsKey("Trader") && it.containsKey("SessionAlias")) {
+                            add(Trader(it["Trader"]!!, it["SessionAlias"]!!))
+                        }
+                    }
+                } ?: add(Trader("woodpecker", "woodpecker_session_alias"))
+
+            toGeneratorRnd()
+        }
+
+        quantity = generators["OrderQty"] as? Int
+        price = generators["Price"] as? Int
+
+        val transactTime = generators["TransactTime"] as? Map<*, *>
+        transactTimeValue = transactTime?.get("value")?.toString()?.run(LocalDateTime::parse)
+        transactTimeSecondsShift = transactTime?.get("current")?.toString()?.toLong()
     }
 
-    private fun getClOrdId() = randomUUID()
-    private fun getSecurityId() = randomUUID()
-    private fun getSecurityIdSource() = securityIdSource.invoke()
-    private fun getOrderQty() = (1..10).random()
-    private fun getPrice() = (1..10).random()
-    private fun getOrdType() = ordType.invoke()
+    private fun getMessageType() = messageTypeGenerator.invoke()
+    private fun getClientOrderID() = randomUUID()
+    private fun getTrader() = traderGenerator.invoke()
+    private fun getSecurityId() = securityIDGenerator.invoke()
+    private fun getSecurityIDSource() = securityIdSource.invoke()
+    private fun getOrderQuantity() = when {
+        quantity != null -> quantity
+        else -> (10..100).random()
+    }
+    private fun getPrice() = when {
+        price != null -> price
+        else -> (52..57).random()
+    }
+    private fun getOrderType() = ordType.invoke()
     private fun getAccountType() = accountType.invoke()
     private fun getOrderCapacity() = orderCapacity.invoke()
     private fun getSide() = side.invoke()
 
     private fun getParty(id: String, source: String, role: String): Value {
-        return Message.newBuilder().putFields("PartyID", id.toValue()).putFields("PartyIDSource", source.toValue())
+        return Message.newBuilder()
+            .putFields("PartyID", id.toValue())
+            .putFields("PartyIDSource", source.toValue())
             .putFields("PartyRole", role.toValue()).toValue()
     }
 
-    private fun generateListNoPartyID(): ListValue.Builder {
-        return ListValue.newBuilder()
-            .add(getParty("id", "D", "76"))
-            .add(getParty("0", "P", "3"))
-            .add(getParty("0", "P", "122"))
-            .add(getParty("3", "P", "12"))
+    private fun generateListNoPartyID(messageType: String, trader: String): ListValue.Builder {
+        val noPartyIDs = ListValue.newBuilder().add(getParty(trader, "D", "76"))
+
+        if (messageType == "NewOrderSingle")
+            noPartyIDs.add(getParty("0", "P", "3"))
+                .add(getParty("0", "P", "122"))
+                .add(getParty("3", "P", "12"))
+
+        return noPartyIDs
     }
 
     private fun getTransactTime() = when {
@@ -97,20 +139,23 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
     }
 
     override fun onNext(): MessageGroup = builder.apply {
+        val type = getMessageType()
+        val trader = getTrader()
+
         getMessagesBuilder(0).messageBuilder.run {
             set("SecurityID", getSecurityId())
-            set("SecurityIDSource", getSecurityIdSource())
-            set("OrdType", getOrdType())
+            set("SecurityIDSource", getSecurityIDSource())
+            set("OrdType", getOrderType())
             set("AccountType", getAccountType())
             set("OrderCapacity", getOrderCapacity())
-            set("OrderQty", getOrderQty())
+            set("OrderQty", getOrderQuantity())
             set("Price", getPrice())
-            set("ClOrdID", getClOrdId())
-            set("SecondaryClOrdID", getClOrdId())
+            set("ClOrdID", getClientOrderID())
             set("Side", getSide())
-            // set("TimeInForce", 0)
             set("TransactTime", getTransactTime())
-            set("TradingParty", generateListNoPartyID())
+            set("TradingParty", generateListNoPartyID(type, trader.name))
+            messageType = type
+            sessionAlias = trader.sessionAlias
             metadataBuilder.timestamp = Instant.now().toTimestamp()
             sequence += 1
         }
@@ -118,13 +163,14 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
 }
 
 class MessageGeneratorSettings : IMessageGeneratorSettings {
-    val messageType: String = "type"
+    val messageType: List<String> = listOf("type")
     val protocol: String = "protocol"
-    val sessionAlias: String = "session"
     val properties: Map<String, String> = mapOf()
     val generators: Map<String, Any?> = mapOf()
     val fields: Map<String, Any?> = mapOf()
 }
+
+private data class Trader(val name: String, val sessionAlias: String)
 
 private fun <T> List<T>.toGenerator(): () -> T {
     var next = -1
@@ -133,3 +179,11 @@ private fun <T> List<T>.toGenerator(): () -> T {
         get(next)
     }
 }
+
+private fun <T> List<T>.toGeneratorRnd(): () -> T {
+    return { get(Random.nextInt(0, size)) }
+}
+
+private fun Map<*, *>.toGeneratorMap(): Map<String, () -> String> = asSequence()
+    .filter { (key, value) -> key is String && value is List<*> }
+    .associate { (key, value) -> key as String to (value as List<*>).filterIsInstance<String>().toGenerator() }

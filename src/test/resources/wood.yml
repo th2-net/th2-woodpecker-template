@@ -1,0 +1,26 @@
+
+protocol: fix
+generators:
+  MessageType:
+    - "NewOrderSingle"
+    - "OrderCancelRequest"
+    - "OrderCancelReplaceRequest"
+  SecurityID:
+    - "5221001"
+  Traders:
+    - Trader: "Trader1"
+      SessionAlias: "SessionAlias1"
+    - Trader: "Trader2"
+      SessionAlias: "SessionAlias2"
+fields:
+  SecurityID: generators
+  SecurityIDSource: generators
+  OrdType: generators
+  AccountType: generators
+  OrderCapacity: generators
+  OrderQty: generators
+  Price: generators
+  ClOrdID: generators
+  Side: generators
+  TransactTime: generators
+  TradingParty: generators

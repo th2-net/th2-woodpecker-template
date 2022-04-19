@@ -52,6 +52,14 @@ java {
     withSourcesJar()
 }
 
+test {
+    useJUnitPlatform()
+}
+
+ext {
+    junitVersion = '5.4.2'
+}
+
 dependencies {
     api platform('com.exactpro.th2:bom:3.0.0')
 
@@ -66,6 +74,11 @@ dependencies {
     implementation group: 'io.github.microutils', name: 'kotlin-logging', version: '1.7.9'
 
     testImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
+
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.6"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
 application {
