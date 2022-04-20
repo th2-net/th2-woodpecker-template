@@ -121,7 +121,7 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
             .putFields("PartyRole", role.toValue()).toValue()
     }
 
-    private fun generateListNoPartyID(messageType: String, trader: String): ListValue.Builder {
+    private fun generateNoPartyIDs(messageType: String, trader: String): Message.Builder {
         val noPartyIDs = ListValue.newBuilder().add(getParty(trader, "D", "76"))
 
         if (messageType == "NewOrderSingle")
@@ -129,7 +129,7 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
                 .add(getParty("0", "P", "122"))
                 .add(getParty("3", "P", "12"))
 
-        return noPartyIDs
+        return Message.newBuilder().putFields("NoPartyIDs", noPartyIDs.toValue())
     }
 
     private fun getTransactTime() = when {
@@ -153,7 +153,7 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
             set("ClOrdID", getClientOrderID())
             set("Side", getSide())
             set("TransactTime", getTransactTime())
-            set("TradingParty", generateListNoPartyID(type, trader.name))
+            set("TradingParty", generateNoPartyIDs(type, trader.name))
             messageType = type
             sessionAlias = trader.sessionAlias
             metadataBuilder.timestamp = Instant.now().toTimestamp()
