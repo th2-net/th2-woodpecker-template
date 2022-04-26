@@ -155,12 +155,12 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
     override fun onNext(): MessageGroup = builder.apply {
         var type = getMessageType()
         var id: String? = null
-        if (type != newOrderSingleType)
-            when {
-                orderIDCache.isEmpty() -> type = newOrderSingleType
-                else -> id = orderIDCache.popRandom()
-            }
 
+        if (orderIDCache.isEmpty())
+            type = newOrderSingleType
+
+        if (type != newOrderSingleType)
+            id = orderIDCache.popRandom()
 
         val trader = getTrader()
 
