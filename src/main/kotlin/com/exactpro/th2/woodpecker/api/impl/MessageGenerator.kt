@@ -22,6 +22,8 @@ import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.Value
 import com.exactpro.th2.common.message.direction
+import com.exactpro.th2.common.message.get
+import com.exactpro.th2.common.message.hasField
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.sequence
 import com.exactpro.th2.common.message.sessionAlias
@@ -144,16 +146,20 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
         orderIDCache.clear()
     }
 
+    override fun onResponse(message: MessageGroup) {
+        val incoming = message.getMessages(0).message
+        if (incoming.messageType == "ExecutionReport" && incoming.hasField("OrderID"))
+            orderIDCache.add(incoming["OrderID"]!!.simpleValue)
+    }
+
     override fun onNext(): MessageGroup = builder.apply {
         var type = getMessageType()
-        var id = getClientOrderID()
-
-        if (type == newOrderSingleType)
-            orderIDCache.add(id)
-        else if (orderIDCache.isEmpty())
-            type = newOrderSingleType
-        else
-            id = orderIDCache.popRandom()
+        var id: String? = null
+        if (type != newOrderSingleType)
+            when {
+                orderIDCache.isEmpty() -> type = newOrderSingleType
+                else -> id = orderIDCache.popRandom()
+            }
 
 
         val trader = getTrader()
@@ -166,7 +172,8 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
             set("OrderCapacity", getOrderCapacity())
             set("OrderQty", getOrderQuantity())
             set("Price", getPrice())
-            set("ClOrdID", id)
+            set("ClOrdID", getClientOrderID())
+            if (type != newOrderSingleType) set("OrderID", id)
             set("Side", getSide())
             set("TransactTime", getTransactTime())
             set("TradingParty", generateNoPartyIDs(type, trader.name))
