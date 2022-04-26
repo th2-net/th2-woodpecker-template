@@ -50,6 +50,7 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
     }
 
     private val messageTypeGenerator: () -> String
+    private val newOrderSingleType = "NewOrderSingle"
     private val securityIDGenerator: () -> String
     private val securityIdSource = listOf('8').toGeneratorRnd() // ('1'..'9') + ('A'..'L')
     private val traderGenerator: () -> Trader
@@ -59,14 +60,15 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
     private val side = listOf('1', '2').toGeneratorRnd() // ('1'..'9') + ('A'..'G')
     private val quantity: Int?
     private val price: Int?
-
     private val transactTimeValue: LocalDateTime?
     private val transactTimeSecondsShift: Long?
+
+    private var orderIDCache: MutableList<String> = mutableListOf()
 
     init {
         val generators = settings.generators
 
-        messageTypeGenerator = ((generators["MessageType"] as? List<*>)?.filterIsInstance<String>() ?: listOf("NewOrderSingle")).toGeneratorRnd()
+        messageTypeGenerator = ((generators["MessageType"] as? List<*>)?.filterIsInstance<String>() ?: listOf(newOrderSingleType)).toGeneratorRnd()
 
         securityIDGenerator = ((generators["SecurityID"] as? List<*>)?.filterIsInstance<String>()
             ?: listOf(randomUUID().toString()))
@@ -97,7 +99,7 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
     }
 
     private fun getMessageType() = messageTypeGenerator.invoke()
-    private fun getClientOrderID() = randomUUID()
+    private fun getClientOrderID() = randomUUID().toString()
     private fun getTrader() = traderGenerator.invoke()
     private fun getSecurityId() = securityIDGenerator.invoke()
     private fun getSecurityIDSource() = securityIdSource.invoke()
@@ -124,7 +126,7 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
     private fun generateNoPartyIDs(messageType: String, trader: String): Message.Builder {
         val noPartyIDs = ListValue.newBuilder().add(getParty(trader, "D", "76"))
 
-        if (messageType == "NewOrderSingle")
+        if (messageType == newOrderSingleType)
             noPartyIDs.add(getParty("0", "P", "3"))
                 .add(getParty("0", "P", "122"))
                 .add(getParty("3", "P", "12"))
@@ -138,8 +140,22 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
         else -> LocalDateTime.now()
     }
 
+    override fun onStart() {
+        orderIDCache.clear()
+    }
+
     override fun onNext(): MessageGroup = builder.apply {
-        val type = getMessageType()
+        var type = getMessageType()
+        var id = getClientOrderID()
+
+        if (type == newOrderSingleType)
+            orderIDCache.add(id)
+        else if (orderIDCache.isEmpty())
+            type = newOrderSingleType
+        else
+            id = orderIDCache.popRandom()
+
+
         val trader = getTrader()
 
         getMessagesBuilder(0).messageBuilder.run {
@@ -150,7 +166,7 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
             set("OrderCapacity", getOrderCapacity())
             set("OrderQty", getOrderQuantity())
             set("Price", getPrice())
-            set("ClOrdID", getClientOrderID())
+            set("ClOrdID", id)
             set("Side", getSide())
             set("TransactTime", getTransactTime())
             set("TradingParty", generateNoPartyIDs(type, trader.name))
@@ -171,6 +187,8 @@ class MessageGeneratorSettings : IMessageGeneratorSettings {
 }
 
 private data class Trader(val name: String, val sessionAlias: String)
+
+private fun <T> MutableList<T>.popRandom(): T = removeAt(Random.nextInt(0, size))
 
 private fun <T> List<T>.toGenerator(): () -> T {
     var next = -1
