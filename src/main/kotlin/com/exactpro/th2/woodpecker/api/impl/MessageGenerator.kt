@@ -174,6 +174,7 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
             set("Price", getPrice())
             set("ClOrdID", getClientOrderID())
             set("OrderID", id)
+            if (type == newOrderSingleType && hasField("OrderID")) removeFields("OrderID")
             set("Side", getSide())
             set("TransactTime", getTransactTime())
             set("TradingParty", generateNoPartyIDs(type, trader.name))
