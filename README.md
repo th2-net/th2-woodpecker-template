@@ -53,20 +53,30 @@ metadata:
 spec:
   image-name: ghcr.io/th2-net/th2-woodpecker-template
   image-version: 0.0.1
+  type: th2-conn
   custom-config:
     maxBatchSize: 1000
     generatorSettings:
-      messageType: Message
-      protocol: proto
-      sessionAlias: some_alias
-      fields:
-        field: value
-        message:
-          field: value
-          collection:
-            - value1
-            - value2
-  type: th2-conn
+      sessionAlias: session-alias
+      templates:
+        NEW_ORDER_SINGLE_TYPE:
+          direction: SECOND
+          fields:
+            field: value
+            message:
+              field: value
+              collection:
+                - value1
+                - value2
+        EXECUTION_REPORT_TYPE:
+          direction: FIRST
+          fields:
+            field: value
+            message:
+              field: value
+              collection:
+                - value1
+                - value2
   pins:
     - name: in_messages
       connection-type: mq
@@ -82,5 +92,5 @@ spec:
         - group
   extended-settings:
     service:
-      enabled: false
+      enabled: true
 ```

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
+import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,16 +44,17 @@ public class TestWoodpecker {
         ClassLoader loader = getClass().getClassLoader();
         File fileYAML = new File(Objects.requireNonNull(loader.getResource("wood.yml")).getFile());
         Assertions.assertTrue(fileYAML.exists(), "File not found");
-        MessageGeneratorSettings messageGeneratorSettings = null;
+        GeneratorSettings generatorSettings = null;
         try {
-            ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-            messageGeneratorSettings = mapper.readValue(fileYAML, new TypeReference<>() {});
+            ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
+                    .registerModule(new KotlinModule());
+            generatorSettings = mapper.readValue(fileYAML, GeneratorSettings.class);
         } catch (Exception e) {
             e.printStackTrace();
         }
-        Assertions.assertNotNull(messageGeneratorSettings, "MessageGeneratorSettings is NULL");
-        LOGGER.info("MessageGeneratorSettings = {} - {}", messageGeneratorSettings.getMessageType(), messageGeneratorSettings.getFields());
-        MessageGenerator messageGenerator = new MessageGenerator(messageGeneratorSettings);
+        Assertions.assertNotNull(generatorSettings, "MessageGeneratorSettings is NULL");
+        LOGGER.info("MessageGeneratorSettings = {}", generatorSettings);
+        MessageGenerator messageGenerator = new MessageGenerator(generatorSettings);
 
         for (int x = 0; x < NUMBER_OF_MESSAGES; x++) {
             Message msg = messageGenerator.onNext().getMessages(0).getMessage();

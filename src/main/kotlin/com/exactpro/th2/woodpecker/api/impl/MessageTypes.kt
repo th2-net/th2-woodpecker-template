@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.exactpro.th2.woodpecker.api.impl
 
-import com.exactpro.th2.common.grpc.MessageGroup
-import com.exactpro.th2.woodpecker.api.IMessageGeneratorFactory
-
-@Suppress("unused")
-class MessageGeneratorFactory : IMessageGeneratorFactory<MessageGenerator, GeneratorSettings> {
-    override val settingsClass = GeneratorSettings::class.java
-    override fun createGenerator(settings: GeneratorSettings, onRequest: (MessageGroup) -> Unit): MessageGenerator = MessageGenerator(settings)
+enum class MessageTypes(val type: String) {
+    NEW_ORDER_SINGLE_TYPE("NewOrderSingle"),
+    EXECUTION_REPORT_TYPE("ExecutionReport"),
 }

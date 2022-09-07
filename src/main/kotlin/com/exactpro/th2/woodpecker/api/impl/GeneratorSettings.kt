@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,15 @@
 
 package com.exactpro.th2.woodpecker.api.impl
 
-import com.exactpro.th2.common.grpc.MessageGroup
-import com.exactpro.th2.woodpecker.api.IMessageGeneratorFactory
+import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.woodpecker.api.IMessageGeneratorSettings
 
-@Suppress("unused")
-class MessageGeneratorFactory : IMessageGeneratorFactory<MessageGenerator, GeneratorSettings> {
-    override val settingsClass = GeneratorSettings::class.java
-    override fun createGenerator(settings: GeneratorSettings, onRequest: (MessageGroup) -> Unit): MessageGenerator = MessageGenerator(settings)
-}
+data class GeneratorSettings(
+    val sessionAlias: String,
+    val templates: Map<MessageTypes, MessageGeneratorSettings>
+) : IMessageGeneratorSettings
+
+data class MessageGeneratorSettings(
+    val direction: Direction = Direction.SECOND,
+    val fields: Map<String, Any?> = mapOf()
+)
