@@ -35,7 +35,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicLong
 
-class MessageGenerator(settings: GeneratorSettings) : IMessageGenerator {
+class MessageGenerator(settings: GeneratorSettings) : IMessageGenerator<GeneratorSettings> {
 
     private val generators: () -> Message.Builder
 
@@ -96,6 +96,7 @@ class MessageGenerator(settings: GeneratorSettings) : IMessageGenerator {
                     }
                     EXECUTION_REPORT_TYPE.type -> {
                         putFields(CL_ORD_ID_FIELD, clOrdId)
+                        putFields(ORD_ID_FIELD, clOrdId)
                         putFields(TRANSACT_TIME_FIELD, currentDateTime().toValue())
                         putFields(TRADING_PARTY_FIELD, generateNoPartyIDs(EXECUTION_REPORT_TYPE))
                     }
@@ -136,6 +137,7 @@ class MessageGenerator(settings: GeneratorSettings) : IMessageGenerator {
         const val TRANSACT_TIME_FIELD = "TransactTime"
         const val SENDING_TIME_FIELD = "SendingTime"
         const val CL_ORD_ID_FIELD = "ClOrdID"
+        const val ORD_ID_FIELD = "OrderID"
 
         const val HEADER_FIELD = "header"
 

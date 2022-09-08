@@ -61,10 +61,10 @@ ext {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:3.0.0')
+    api platform('com.exactpro.th2:bom:3.2.0')
 
-    implementation 'com.exactpro.th2:common:3.13.4'
-    implementation 'com.exactpro.th2:woodpecker:0.0.2'
+    implementation 'com.exactpro.th2:common:3.40.0'
+    implementation 'com.exactpro.th2:woodpecker:1.0.3'
 
     implementation 'org.slf4j:slf4j-log4j12'
     implementation 'org.slf4j:slf4j-api'
@@ -75,6 +75,7 @@ dependencies {
 
     testImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
 
+    implementation 'com.exactpro.th2:grpc-woodpecker:0.1.0'
     implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.6"
 
     testImplementation "com.fasterxml.jackson.module:jackson-module-kotlin:2.11.4"
