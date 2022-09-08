@@ -92,13 +92,13 @@ class MessageGenerator(settings: GeneratorSettings) : IMessageGenerator<Generato
                     NEW_ORDER_SINGLE_TYPE.type -> {
                         clOrdId = "CL${SEQUENCE_COUNTER.get()}".toValue()
                         putFields(CL_ORD_ID_FIELD, clOrdId)
-                        putFields(TRADING_PARTY_FIELD, generateNoPartyIDs(NEW_ORDER_SINGLE_TYPE))
+                        putFields(NO_PARTY_IDS_FIELD, generateNoPartyIDs(NEW_ORDER_SINGLE_TYPE))
                     }
                     EXECUTION_REPORT_TYPE.type -> {
                         putFields(CL_ORD_ID_FIELD, clOrdId)
                         putFields(ORD_ID_FIELD, clOrdId)
                         putFields(TRANSACT_TIME_FIELD, currentDateTime().toValue())
-                        putFields(TRADING_PARTY_FIELD, generateNoPartyIDs(EXECUTION_REPORT_TYPE))
+                        putFields(NO_PARTY_IDS_FIELD, generateNoPartyIDs(EXECUTION_REPORT_TYPE))
                     }
                     else -> error("Unsupported message type $messageType")
                 }
@@ -123,7 +123,7 @@ class MessageGenerator(settings: GeneratorSettings) : IMessageGenerator<Generato
                 .add(generateParty("3", "P", "12"))
         }
 
-        return Message.newBuilder().putFields("NoPartyIDs", noPartyIDs.toValue()).toValue()
+        return noPartyIDs.toValue()
     }
 
     companion object {
@@ -133,7 +133,7 @@ class MessageGenerator(settings: GeneratorSettings) : IMessageGenerator<Generato
         const val PARTY_ID_SOURCE_FIELD = "PartyIDSource"
         const val PARTY_ROLE_FIELD = "PartyRole"
 
-        const val TRADING_PARTY_FIELD = "TradingParty"
+        const val NO_PARTY_IDS_FIELD = "NoPartyIDs"
         const val TRANSACT_TIME_FIELD = "TransactTime"
         const val SENDING_TIME_FIELD = "SendingTime"
         const val CL_ORD_ID_FIELD = "ClOrdID"
