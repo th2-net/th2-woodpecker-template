@@ -108,7 +108,7 @@ class RandomGenerator(
 }
 
 class OneOfGenerator(
-    messages: List<String> = listOf(
+    val messages: List<String> = listOf(
         "8=FIXT.1.1\u00019=5\u000135=D\u000110=111\u0001"
     )
 ): IDataGenerator {
