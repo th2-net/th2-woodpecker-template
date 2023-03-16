@@ -2,7 +2,8 @@ plugins {
     id 'application'
     id 'com.palantir.docker' version '0.25.0'
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
-    id "com.github.harbby.gradle.serviceloader" version '1.1.5'
+    id "com.github.harbby.gradle.serviceloader" version '1.1.8'
+    id "org.owasp.dependencycheck" version "8.1.2"
 }
 
 group = 'com.exactpro.th2'
@@ -53,17 +54,18 @@ java {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:3.0.0')
+    api platform('com.exactpro.th2:bom:4.2.0')
 
-    implementation 'com.exactpro.th2:common:3.13.4'
-    implementation 'com.exactpro.th2:woodpecker:0.0.2'
+    implementation 'com.exactpro.th2:common:5.2.0-dev'
+    implementation 'com.exactpro.th2:woodpecker:2.0.0-dev-version-2-4436786119-1d92346-SNAPSHOT'
+    implementation 'com.exactpro.th2:grpc-woodpecker:2.0.0-dev'
 
-    implementation 'org.slf4j:slf4j-log4j12'
     implementation 'org.slf4j:slf4j-api'
 
-    implementation group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk8', version: kotlin_version
+    implementation 'com.google.protobuf:protobuf-java'
+
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-reflect', version: kotlin_version
-    implementation group: 'io.github.microutils', name: 'kotlin-logging', version: '1.7.9'
+    implementation group: 'io.github.microutils', name: 'kotlin-logging', version: '3.0.0'
 
     testImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
 }
@@ -89,4 +91,21 @@ docker {
 serviceLoader {
     serviceInterface 'com.exactpro.th2.woodpecker.api.IMessageGenerator'
     serviceInterface 'com.exactpro.th2.woodpecker.api.IMessageGeneratorFactory'
+}
+
+configurations {
+    compileClasspath {
+        resolutionStrategy.activateDependencyLocking()
+    }
+}
+
+dependencyCheck {
+    formats=['SARIF', 'JSON', 'HTML']
+    failBuildOnCVSS=5
+
+    analyzers {
+        assemblyEnabled = false
+        nugetconfEnabled = false
+        nodeEnabled = false
+    }
 }

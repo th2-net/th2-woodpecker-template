@@ -24,16 +24,16 @@ Generator can be configured via setting following properties in the `generatorSe
 ```yaml
 maxBatchSize: 1000
 generatorSettings:
-  messageType: Message
-  protocol: proto
-  sessionAlias: some_alias
-  fields:
-    field: value
-    message:
-      field: value
-      collection:
-        - value1
-        - value2
+  sessionGroupPrefix: group
+  sessionGroupNumber: 1
+  sessionAliasPrefix: session
+  sessionAliasNumber: 1
+  protocol: protocol
+  random:
+    messageSize: 256
+  oneOf:
+    messages:
+      - "8=FIXT.1.19=535=D10=111"
 ```
 
 ### MQ pins
@@ -56,16 +56,16 @@ spec:
   custom-config:
     maxBatchSize: 1000
     generatorSettings:
-      messageType: Message
-      protocol: proto
-      sessionAlias: some_alias
-      fields:
-        field: value
-        message:
-          field: value
-          collection:
-            - value1
-            - value2
+      sessionGroupPrefix: group
+      sessionGroupNumber: 1
+      sessionAliasPrefix: session
+      sessionAliasNumber: 1
+      protocol: protocol
+      random:
+        messageSize: 256
+      oneOf:
+        messages:
+          - "8=FIXT.1.19=535=D10=111"
   type: th2-conn
   pins:
     - name: in_messages

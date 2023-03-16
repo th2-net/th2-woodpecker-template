@@ -27,7 +27,8 @@ import com.exactpro.th2.woodpecker.api.IMessageGenerator
 import com.exactpro.th2.woodpecker.api.IMessageGeneratorSettings
 import java.time.Instant
 
-class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
+@Suppress("unused")
+class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator<MessageGeneratorSettings> {
     private val builder = MessageGroup.newBuilder().apply {
         addMessagesBuilder().message = settings.fields.toProtoBuilder().apply {
             messageType = settings.messageType
@@ -44,7 +45,7 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator {
 
     override fun onNext(): MessageGroup = builder.apply {
         getMessagesBuilder(0).messageBuilder.run {
-            metadataBuilder.timestamp = Instant.now().toTimestamp()
+            metadataBuilder.idBuilder.timestamp = Instant.now().toTimestamp()
             sequence += 1
         }
     }.build()
