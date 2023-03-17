@@ -57,7 +57,7 @@ dependencies {
     api platform('com.exactpro.th2:bom:4.2.0')
 
     implementation 'com.exactpro.th2:common:5.2.0-dev'
-    implementation 'com.exactpro.th2:woodpecker:2.0.0-dev-version-2-4436786119-1d92346-SNAPSHOT'
+    implementation 'com.exactpro.th2:woodpecker:2.0.0-update-workflow-4445342920-7781c91-SNAPSHOT'
     implementation 'com.exactpro.th2:grpc-woodpecker:2.0.0-dev'
 
     implementation 'org.slf4j:slf4j-api'

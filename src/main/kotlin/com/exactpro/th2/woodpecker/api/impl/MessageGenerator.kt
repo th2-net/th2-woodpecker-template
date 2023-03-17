@@ -18,6 +18,7 @@ package com.exactpro.th2.woodpecker.api.impl
 
 import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.direction
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.sequence
@@ -43,10 +44,14 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator<M
         }.build()
     }
 
-    override fun onNext(): MessageGroup = builder.apply {
-        getMessagesBuilder(0).messageBuilder.run {
-            metadataBuilder.idBuilder.timestamp = Instant.now().toTimestamp()
-            sequence += 1
+    override fun onNext(size: Int): MessageGroupBatch = MessageGroupBatch.newBuilder().apply {
+        repeat(size) {
+            addGroups(builder.apply {
+                getMessagesBuilder(0).messageBuilder.run {
+                    metadataBuilder.idBuilder.timestamp = Instant.now().toTimestamp()
+                    sequence += 1
+                }
+            }.build())
         }
     }.build()
 }

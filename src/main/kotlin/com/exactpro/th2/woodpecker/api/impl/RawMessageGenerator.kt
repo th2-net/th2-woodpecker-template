@@ -19,6 +19,7 @@ package com.exactpro.th2.woodpecker.api.impl
 import com.exactpro.th2.common.grpc.Direction.FIRST
 import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.direction
 import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.woodpecker.api.IMessageGenerator
@@ -26,6 +27,7 @@ import com.exactpro.th2.woodpecker.api.IMessageGeneratorSettings
 import com.exactpro.th2.woodpecker.api.impl.RawMessageGenerator.Companion.RANDOM
 import com.google.protobuf.ByteString
 import com.google.protobuf.UnsafeByteOperations
+import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils.isNotBlank
 import java.nio.charset.Charset
 import java.time.Instant
@@ -55,35 +57,49 @@ class RawMessageGenerator(settings: RawMessageGeneratorSettings) : IMessageGener
 
     private val dataGenerator: IDataGenerator = settings.random ?: settings.oneOf ?: error("Neither for data generators is specified")
 
-    override fun onNext(): MessageGroup = builder.apply {
+    init {
+        K_LOGGER.info { "Prepared session groups: $sessionGroups" }
+    }
+
+    override fun onNext(size: Int): MessageGroupBatch = MessageGroupBatch.newBuilder().apply {
         val sessionGroup = sessionGroups.random()
-
-        getMessagesBuilder(0).rawMessageBuilder.run {
-            metadataBuilder.apply {
-                idBuilder.apply {
-                    connectionIdBuilder.apply {
-                        this.sessionGroup = sessionGroup.name
-                        this.sessionAlias = sessionGroup.aliases.random()
+        repeat(size) {
+            addGroups(builder.apply {
+                getMessagesBuilder(0).rawMessageBuilder.run {
+                    metadataBuilder.apply {
+                        idBuilder.apply {
+                            connectionIdBuilder.apply {
+                                this.sessionGroup = sessionGroup.name
+                                this.sessionAlias = sessionGroup.aliases.random()
+                            }
+                            timestamp = Instant.now().toTimestamp()
+                            sequence += 1
+                        }
+                        direction = DIRECTIONS.random()
                     }
-                    timestamp = Instant.now().toTimestamp()
-                    sequence += 1
-                }
-                direction = DIRECTIONS.random()
-            }
 
-            body = dataGenerator.next()
+                    body = dataGenerator.next()
+                }
+            }.build())
         }
+
     }.build()
+
     companion object {
-        internal val RANDOM = Random()
+        private val K_LOGGER = KotlinLogging.logger {  }
         private val DIRECTIONS = listOf(FIRST, SECOND)
+        internal val RANDOM = Random()
     }
 }
 
 class SessionGroup(
     val name: String,
     val aliases: List<String>
-)
+) {
+    override fun toString(): String {
+        return "SessionGroup(name='$name', aliases=$aliases)"
+    }
+}
 
 class RawMessageGeneratorSettings(
     val sessionAliasPrefix: String = "session",
