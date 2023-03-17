@@ -32,22 +32,19 @@ import org.apache.commons.lang3.StringUtils.isNotBlank
 import java.nio.charset.Charset
 import java.time.Instant
 import java.util.*
+import java.util.concurrent.atomic.AtomicLong
 
 class RawMessageGenerator(settings: RawMessageGeneratorSettings) : IMessageGenerator<RawMessageGeneratorSettings> {
     private val sessionGroups = (1..settings.sessionGroupNumber).map { num ->
         SessionGroup(
             "${settings.sessionGroupPrefix}_$num",
-            (1..settings.sessionAliasNumber).map { "${settings.sessionAliasPrefix}_${num}_$it" }
+            (1..settings.sessionAliasNumber).map { SessionAlias("${settings.sessionAliasPrefix}_${num}_$it") }
         )
     }
 
     private val builder = MessageGroup.newBuilder().apply {
         addMessagesBuilder().rawMessageBuilder.apply {
             metadataBuilder.apply {
-                idBuilder.apply {
-
-                    sequence = System.currentTimeMillis() * 1_000_000L
-                }
                 if (isNotBlank(settings.protocol)) {
                     protocol = settings.protocol
                 }
@@ -64,16 +61,17 @@ class RawMessageGenerator(settings: RawMessageGeneratorSettings) : IMessageGener
     override fun onNext(size: Int): MessageGroupBatch = MessageGroupBatch.newBuilder().apply {
         val sessionGroup = sessionGroups.random()
         repeat(size) {
+            val sessionAlias = sessionGroup.aliases.random()
             addGroups(builder.apply {
                 getMessagesBuilder(0).rawMessageBuilder.run {
                     metadataBuilder.apply {
                         idBuilder.apply {
                             connectionIdBuilder.apply {
                                 this.sessionGroup = sessionGroup.name
-                                this.sessionAlias = sessionGroup.aliases.random()
+                                this.sessionAlias = sessionAlias.name
                             }
                             timestamp = Instant.now().toTimestamp()
-                            sequence += 1
+                            sequence = sessionAlias.next()
                         }
                         direction = DIRECTIONS.random()
                     }
@@ -94,11 +92,23 @@ class RawMessageGenerator(settings: RawMessageGeneratorSettings) : IMessageGener
 
 class SessionGroup(
     val name: String,
-    val aliases: List<String>
+    val aliases: List<SessionAlias>
 ) {
     override fun toString(): String {
         return "SessionGroup(name='$name', aliases=$aliases)"
     }
+}
+
+class SessionAlias(
+    val name: String
+) {
+    private val sequence = AtomicLong(System.currentTimeMillis() * 1_000_000L)
+
+    fun next(): Long = sequence.incrementAndGet()
+    override fun toString(): String {
+        return "SessionAlias(name='$name', sequence=$sequence)"
+    }
+
 }
 
 class RawMessageGeneratorSettings(
