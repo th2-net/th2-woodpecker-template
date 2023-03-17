@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.woodpecker.api.impl
 
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.Direction.FIRST
 import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.grpc.MessageGroup
@@ -62,6 +63,7 @@ class RawMessageGenerator(settings: RawMessageGeneratorSettings) : IMessageGener
         val sessionGroup = sessionGroups.random()
         repeat(size) {
             val sessionAlias = sessionGroup.aliases.random()
+            val direction = DIRECTIONS.random()
             addGroups(builder.apply {
                 getMessagesBuilder(0).rawMessageBuilder.run {
                     metadataBuilder.apply {
@@ -71,12 +73,12 @@ class RawMessageGenerator(settings: RawMessageGeneratorSettings) : IMessageGener
                                 this.sessionAlias = sessionAlias.name
                             }
                             timestamp = Instant.now().toTimestamp()
-                            sequence = sessionAlias.next()
+                            sequence = sessionAlias.next(direction)
                         }
-                        direction = DIRECTIONS.random()
-                    }
 
-                    body = dataGenerator.next()
+                    }
+                    this.direction = direction
+                    this.body = dataGenerator.next()
                 }
             }.build())
         }
@@ -102,20 +104,27 @@ class SessionGroup(
 class SessionAlias(
     val name: String
 ) {
-    private val sequence = AtomicLong(System.currentTimeMillis() * 1_000_000L)
+    private val sequences: Map<Direction, AtomicLong>
+    init {
+        sequences = EnumMap<Direction, AtomicLong>(Direction::class.java).apply {
+            Direction.values().forEach {
+                put(it, AtomicLong(System.currentTimeMillis() * 1_000_000L))
+            }
+        }
+    }
 
-    fun next(): Long = sequence.incrementAndGet()
+    fun next(direction: Direction): Long = sequences[direction]?.incrementAndGet() ?: error("Sequence for the $direction direction isn't found")
     override fun toString(): String {
-        return "SessionAlias(name='$name', sequence=$sequence)"
+        return "SessionAlias(name='$name', sequences=$sequences)"
     }
 
 }
 
 class RawMessageGeneratorSettings(
     val sessionAliasPrefix: String = "session",
-    val sessionAliasNumber: Int = 1,
+    val sessionAliasNumber: Int = 20,
     val sessionGroupPrefix: String = "group",
-    val sessionGroupNumber: Int = 1,
+    val sessionGroupNumber: Int = 20,
 
     val protocol: String? = "protocol",
 

@@ -70,6 +70,10 @@ dependencies {
     testImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
 }
 
+test {
+    useJUnitPlatform()
+}
+
 application {
     mainClassName 'com.exactpro.th2.woodpecker.Main'
 }
