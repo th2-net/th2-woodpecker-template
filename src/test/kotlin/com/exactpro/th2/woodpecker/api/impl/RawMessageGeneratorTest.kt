@@ -23,7 +23,7 @@ class RawMessageGeneratorTest {
 
     @Test
     fun test() {
-        val generator = RawMessageGenerator(RawMessageGeneratorSettings(random = RandomGenerator()))
+        val generator = RawMessageGenerator(RawMessageGeneratorSettings("book", random = RandomGenerator()))
         val batch = generator.onNext(100)
         assertEquals(100, batch.groupsCount)
     }

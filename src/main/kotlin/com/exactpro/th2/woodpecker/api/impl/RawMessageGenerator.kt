@@ -23,6 +23,12 @@ import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.direction
 import com.exactpro.th2.common.message.toTimestamp
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection.INCOMING
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection.OUTGOING
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
 import com.exactpro.th2.woodpecker.api.IMessageGenerator
 import com.exactpro.th2.woodpecker.api.IMessageGeneratorSettings
 import com.exactpro.th2.woodpecker.api.impl.RawMessageGenerator.Companion.RANDOM
@@ -35,7 +41,10 @@ import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
 
-class RawMessageGenerator(settings: RawMessageGeneratorSettings) : IMessageGenerator<RawMessageGeneratorSettings> {
+class RawMessageGenerator(
+    private val settings: RawMessageGeneratorSettings
+) : IMessageGenerator<RawMessageGeneratorSettings> {
+
     private val sessionGroups = (1..settings.sessionGroupNumber).map { num ->
         SessionGroup(
             "${settings.sessionGroupPrefix}_$num",
@@ -72,22 +81,41 @@ class RawMessageGenerator(settings: RawMessageGeneratorSettings) : IMessageGener
                                 this.sessionGroup = sessionGroup.name
                                 this.sessionAlias = sessionAlias.name
                             }
+                            bookName = settings.bookName
                             timestamp = Instant.now().toTimestamp()
                             sequence = sessionAlias.next(direction)
                         }
 
                     }
                     this.direction = direction
-                    this.body = dataGenerator.next()
+                    this.body = dataGenerator.nextByteString()
                 }
             }.build())
         }
 
     }.build()
 
+    override fun onNextDemo(size: Int): DemoMessageBatch {
+        val group = sessionGroups.random()
+        return DemoMessageBatch(
+            settings.bookName,
+            group.name,
+            generateSequence {
+                val alias = group.aliases.random()
+                val direction = DEMO_DIRECTIONS.random()
+                DemoRawMessage(
+                    DemoMessageId(settings.bookName, group.name, alias.name, direction, alias.next(direction), timestamp = Instant.now()),
+                    protocol = settings.protocol ?: "",
+                    body = dataGenerator.nextByteArray()
+                )
+            }.take(size).toList()
+        )
+    }
+
     companion object {
         private val K_LOGGER = KotlinLogging.logger {  }
         private val DIRECTIONS = listOf(FIRST, SECOND)
+        private val DEMO_DIRECTIONS = listOf(INCOMING, OUTGOING)
         internal val RANDOM = Random()
     }
 }
@@ -105,15 +133,22 @@ class SessionAlias(
     val name: String
 ) {
     private val sequences: Map<Direction, AtomicLong>
+    private val demoSequences: Map<DemoDirection, AtomicLong>
     init {
         sequences = EnumMap<Direction, AtomicLong>(Direction::class.java).apply {
             Direction.values().forEach {
                 put(it, AtomicLong(System.currentTimeMillis() * 1_000_000L))
             }
         }
+        demoSequences = EnumMap<DemoDirection, AtomicLong>(DemoDirection::class.java).apply {
+            DemoDirection.values().forEach {
+                put(it, AtomicLong(System.currentTimeMillis() * 1_000_000L))
+            }
+        }
     }
 
     fun next(direction: Direction): Long = sequences[direction]?.incrementAndGet() ?: error("Sequence for the $direction direction isn't found")
+    fun next(direction: DemoDirection): Long = demoSequences[direction]?.incrementAndGet() ?: error("Sequence for the $direction direction isn't found")
     override fun toString(): String {
         return "SessionAlias(name='$name', sequences=$sequences)"
     }
@@ -121,6 +156,7 @@ class SessionAlias(
 }
 
 class RawMessageGeneratorSettings(
+    val bookName: String,
     val sessionAliasPrefix: String = "session",
     val sessionAliasNumber: Int = 20,
     val sessionGroupPrefix: String = "group",
@@ -133,25 +169,34 @@ class RawMessageGeneratorSettings(
 ): IMessageGeneratorSettings
 
 internal interface IDataGenerator {
-    fun next(): ByteString
+    fun nextByteString(): ByteString
+    fun nextByteArray(): ByteArray
 }
 
 class RandomGenerator(
     private val messageSize: Int = 256
 ): IDataGenerator {
-    override fun next(): ByteString = UnsafeByteOperations.unsafeWrap(ByteArray(messageSize).apply(RANDOM::nextBytes))
+    override fun nextByteString(): ByteString = UnsafeByteOperations.unsafeWrap(nextByteArray())
+    override fun nextByteArray(): ByteArray = ByteArray(messageSize).apply(RANDOM::nextBytes)
 }
 
 class OneOfGenerator(
+    @Suppress("MemberVisibilityCanBePrivate") // This is setting option
     val messages: List<String> = listOf(
         "8=FIXT.1.1\u00019=5\u000135=D\u000110=111\u0001"
     )
 ): IDataGenerator {
-    private val arrays: List<ByteString> = messages.run {
-        require(isNotEmpty()) {
-            "'messages' option can not be empty"
-        }
+    private val byteStrings: List<ByteString> = messages.run {
         map { UnsafeByteOperations.unsafeWrap(it.toByteArray(Charset.defaultCharset())) }
     }
-    override fun next(): ByteString = arrays.random()
+    private val byteArrays: List<ByteArray> = messages.run {
+        map { it.toByteArray(Charset.defaultCharset()) }
+    }
+    init {
+        require(messages.isNotEmpty()) {
+            "'messages' option can not be empty"
+        }
+    }
+    override fun nextByteString(): ByteString = byteStrings.random()
+    override fun nextByteArray(): ByteArray = byteArrays.random()
 }

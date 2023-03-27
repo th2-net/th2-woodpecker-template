@@ -56,14 +56,16 @@ java {
 dependencies {
     api platform('com.exactpro.th2:bom:4.2.0')
 
-    implementation 'com.exactpro.th2:common:5.2.0-dev'
-    implementation 'com.exactpro.th2:woodpecker:2.0.0-update-workflow-4445342920-7781c91-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:5.2.0-separate-executor-4529851244-8ba6027-SNAPSHOT'
+    implementation 'com.exactpro.th2:woodpecker:2.0.0-demo-router-4532645595-73039dd-SNAPSHOT'
     implementation 'com.exactpro.th2:grpc-woodpecker:2.0.0-dev'
 
     implementation 'org.slf4j:slf4j-api'
 
     implementation 'com.google.protobuf:protobuf-java'
 
+    implementation group: 'commons-io', name: 'commons-io'
+    implementation group: 'org.apache.commons', name: 'commons-lang3'
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-reflect', version: kotlin_version
     implementation group: 'io.github.microutils', name: 'kotlin-logging', version: '3.0.0'
 
