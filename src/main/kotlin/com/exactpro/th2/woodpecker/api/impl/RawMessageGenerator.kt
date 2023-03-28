@@ -26,7 +26,8 @@ import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection.INCOMING
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection.OUTGOING
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
 import com.exactpro.th2.woodpecker.api.IMessageGenerator
@@ -95,18 +96,29 @@ class RawMessageGenerator(
 
     }.build()
 
-    override fun onNextDemo(size: Int): DemoMessageBatch {
+    override fun onNextDemo(size: Int): DemoGroupBatch {
         val group = sessionGroups.random()
-        return DemoMessageBatch(
+        return DemoGroupBatch(
             settings.bookName,
             group.name,
             generateSequence {
                 val alias = group.aliases.random()
                 val direction = DEMO_DIRECTIONS.random()
-                DemoRawMessage(
-                    DemoMessageId(settings.bookName, group.name, alias.name, direction, alias.next(direction), timestamp = Instant.now()),
-                    protocol = settings.protocol ?: "",
-                    body = dataGenerator.nextByteArray()
+                DemoMessageGroup(
+                    listOf(
+                        DemoRawMessage(
+                            DemoMessageId(
+                                settings.bookName,
+                                group.name,
+                                alias.name,
+                                direction,
+                                alias.next(direction),
+                                timestamp = Instant.now()
+                            ),
+                            protocol = settings.protocol ?: "",
+                            body = dataGenerator.nextByteArray()
+                        )
+                    )
                 )
             }.take(size).toList()
         )
