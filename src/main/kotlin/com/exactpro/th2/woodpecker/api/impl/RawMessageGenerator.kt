@@ -23,13 +23,11 @@ import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.direction
 import com.exactpro.th2.common.message.toTimestamp
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction as TransportDirection
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.INCOMING
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.OUTGOING
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup as TransportMessageGroup
 import com.exactpro.th2.woodpecker.api.IMessageGenerator
 import com.exactpro.th2.woodpecker.api.IMessageGeneratorSettings
 import com.exactpro.th2.woodpecker.api.impl.RawMessageGenerator.Companion.RANDOM
@@ -42,6 +40,8 @@ import org.apache.commons.lang3.StringUtils.isNotBlank
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction as TransportDirection
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup as TransportMessageGroup
 
 class RawMessageGenerator(
     private val settings: RawMessageGeneratorSettings
@@ -74,7 +74,7 @@ class RawMessageGenerator(
         val sessionGroup = sessionGroups.random()
         repeat(size) {
             val sessionAlias = sessionGroup.aliases.random()
-            val direction = DIRECTIONS.random()
+            val direction = dataGenerator.directions.random()
             addGroups(builder.apply {
                 getMessagesBuilder(0).rawMessageBuilder.run {
                     metadataBuilder.apply {
@@ -90,7 +90,7 @@ class RawMessageGenerator(
 
                     }
                     this.direction = direction
-                    this.body = dataGenerator.nextByteString()
+                    this.body = dataGenerator.nextByteString(direction)
                 }
             }.build())
         }
@@ -104,18 +104,18 @@ class RawMessageGenerator(
             group.name,
             generateSequence {
                 val alias = group.aliases.random()
-                val direction = DEMO_DIRECTIONS.random()
+                val direction = dataGenerator.directions.random()
                 TransportMessageGroup(
                     mutableListOf(
                         RawMessage(
                             MessageId(
                                 alias.name,
-                                direction,
+                                direction.transport,
                                 alias.next(direction),
                                 timestamp = Instant.now()
                             ),
                             protocol = settings.protocol ?: "",
-                            body = Unpooled.wrappedBuffer(dataGenerator.nextByteArray())
+                            body = Unpooled.wrappedBuffer(dataGenerator.nextByteArray(direction))
                         )
                     )
                 )
@@ -125,12 +125,14 @@ class RawMessageGenerator(
 
     companion object {
         private val K_LOGGER = KotlinLogging.logger {  }
-        private val DIRECTIONS = listOf(FIRST, SECOND)
-        private val DEMO_DIRECTIONS = listOf(
-            INCOMING,
-            OUTGOING
-        )
         internal val RANDOM = Random()
+
+        val Direction.transport: TransportDirection
+            get() = when(this) {
+                FIRST -> INCOMING
+                SECOND -> OUTGOING
+                else -> error("Unsupported $this direction")
+            }
     }
 }
 
@@ -183,43 +185,59 @@ class RawMessageGeneratorSettings(
 ): IMessageGeneratorSettings
 
 internal interface IDataGenerator {
-    fun nextByteString(): ByteString
-    fun nextByteArray(): ByteArray
+    val directions: Set<Direction>
+        get() = DIRECTIONS
+
+    fun nextByteString(direction: Direction): ByteString
+    fun nextByteArray(direction: Direction): ByteArray
+
+    companion object {
+        val DIRECTIONS = setOf(FIRST, SECOND)
+    }
 }
 
 @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
 class RandomGenerator(
     private val messageSize: Int = 256
 ): IDataGenerator {
-    override fun nextByteString(): ByteString = UnsafeByteOperations.unsafeWrap(nextByteArray())
-    override fun nextByteArray(): ByteArray = ByteArray(messageSize).apply(RANDOM::nextBytes)
+    override fun nextByteString(direction: Direction): ByteString = UnsafeByteOperations.unsafeWrap(nextByteArray(direction))
+    override fun nextByteArray(direction: Direction): ByteArray = ByteArray(messageSize).apply(RANDOM::nextBytes)
 }
 
-class OneOfGenerator(
+class MessageExamples(
     messages: List<String> = listOf(
         "8=FIXT.1.1\u00019=5\u000135=D\u000110=111\u0001"
     ),
     base64s: List<String> = listOf(
         Base64.getEncoder().encodeToString("8=FIXT.1.1\u00019=5\u000135=D\u000110=111\u0001".toByteArray())
     )
-): IDataGenerator {
-    private val byteStrings: List<ByteString> = base64s.asSequence()
+) {
+    init {
+        require(messages.isNotEmpty() || base64s.isNotEmpty()) {
+            "'messages' or 'base64s' options should be filled"
+        }
+    }
+
+    val byteStrings: List<ByteString> = base64s.asSequence()
         .map(Base64.getDecoder()::decode)
         .plus(messages.asSequence()
             .map(String::toByteArray))
         .map(UnsafeByteOperations::unsafeWrap)
         .toList()
 
-    private val byteArrays: List<ByteArray> = base64s.asSequence()
+    val byteArrays: List<ByteArray> = base64s.asSequence()
         .map(Base64.getDecoder()::decode)
         .plus(messages.asSequence()
             .map(String::toByteArray))
         .toList()
-    init {
-        require(messages.isNotEmpty() || base64s.isNotEmpty()) {
-            "'messages' option can not be empty"
-        }
-    }
-    override fun nextByteString(): ByteString = byteStrings.random()
-    override fun nextByteArray(): ByteArray = byteArrays.random()
+}
+
+@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
+class OneOfGenerator(
+    private val directionToExamples: Map<Direction, MessageExamples>
+): IDataGenerator {
+    override fun nextByteString(direction: Direction): ByteString =
+        directionToExamples[direction]?.byteStrings?.random() ?: error("$direction direction is unsupported")
+    override fun nextByteArray(direction: Direction): ByteArray =
+        directionToExamples[direction]?.byteArrays?.random() ?: error("$direction direction is unsupported")
 }

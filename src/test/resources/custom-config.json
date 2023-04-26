@@ -9,11 +9,23 @@
     "messageSize": 1024
   },
   "oneOf": {
-    "messages": [
-      "test-message-1"
-    ],
-    "base64s": [
-      "dGVzdC1tZXNzYWdlLTI="
-    ]
+    "directionToExamples": {
+      "FIRST": {
+        "messages": [
+          "test-message-1"
+        ],
+        "base64s": [
+          "dGVzdC1tZXNzYWdlLTI="
+        ]
+      },
+      "SECOND": {
+        "messages": [
+          "test-message-3"
+        ],
+        "base64s": [
+          "dGVzdC1tZXNzYWdlLTQ="
+        ]
+      }
+    }
   }
 }
