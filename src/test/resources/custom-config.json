@@ -1,0 +1,19 @@
+{
+  "bookName": "test-book",
+  "sessionAliasPrefix": "test-session-alias-prefix",
+  "sessionAliasNumber": 40,
+  "sessionGroupPrefix": "test-session-group-prefix",
+  "sessionGroupNumber": 40,
+  "protocol": "test-protocol",
+  "random": {
+    "messageSize": 1024
+  },
+  "oneOf": {
+    "messages": [
+      "test-message-1"
+    ],
+    "base64s": [
+      "dGVzdC1tZXNzYWdlLTI="
+    ]
+  }
+}

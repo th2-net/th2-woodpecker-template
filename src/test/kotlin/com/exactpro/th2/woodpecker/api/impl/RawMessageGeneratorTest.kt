@@ -16,8 +16,15 @@
 
 package com.exactpro.th2.woodpecker.api.impl
 
+import com.exactpro.th2.common.schema.factory.AbstractCommonFactory
+import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.KotlinFeature
+import com.fasterxml.jackson.module.kotlin.KotlinModule
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 class RawMessageGeneratorTest {
 
@@ -26,5 +33,24 @@ class RawMessageGeneratorTest {
         val generator = RawMessageGenerator(RawMessageGeneratorSettings("book", random = RandomGenerator()))
         val batch = generator.onNext(100)
         assertEquals(100, batch.groupsCount)
+    }
+
+    @Test
+    fun `read settings test`() {
+        val objectMapper = ObjectMapper().registerModules(
+            KotlinModule.Builder()
+                .withReflectionCacheSize(512)
+                .configure(KotlinFeature.NullToEmptyCollection, false)
+                .configure(KotlinFeature.NullToEmptyMap, false)
+                .configure(KotlinFeature.NullIsSameAsDefault, false)
+                .configure(KotlinFeature.SingletonSupport, false)
+                .configure(KotlinFeature.StrictNullChecks, false)
+                .build(),
+            RoutingStrategyModule(AbstractCommonFactory.MAPPER),
+            JavaTimeModule()
+        )
+        RawMessageGeneratorTest::class.java.classLoader.getResourceAsStream("custom-config.json").use {
+            assertNotNull(objectMapper.readValue(it, RawMessageGeneratorSettings::class.java))
+        }
     }
 }

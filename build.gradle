@@ -28,7 +28,7 @@ repositories {
 
     mavenLocal()
 
-    configurations.all {
+    configurations.configureEach {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
         resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
     }
@@ -56,16 +56,23 @@ java {
 dependencies {
     api platform('com.exactpro.th2:bom:4.2.0')
 
-    implementation 'com.exactpro.th2:common:5.2.0-separate-executor-4540494014-0b4ad85-SNAPSHOT'
-    implementation 'com.exactpro.th2:woodpecker:2.0.0-demo-router-4540794016-179b928-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:5.2.0-separate-executor-4807123825-9449978-SNAPSHOT'
+    implementation 'com.exactpro.th2:woodpecker:2.0.0-demo-router-4808564637-45a63c0-SNAPSHOT'
     implementation 'com.exactpro.th2:grpc-woodpecker:2.0.0-dev'
 
     implementation 'org.slf4j:slf4j-api'
 
+    implementation 'io.netty:netty-buffer'
+
     implementation 'com.google.protobuf:protobuf-java'
 
-    implementation group: 'commons-io', name: 'commons-io'
-    implementation group: 'org.apache.commons', name: 'commons-lang3'
+    implementation 'commons-io:commons-io'
+    implementation 'org.apache.commons:commons-lang3'
+
+    implementation "com.fasterxml.jackson.core:jackson-databind"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
+    implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
+
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-reflect', version: kotlin_version
     implementation group: 'io.github.microutils', name: 'kotlin-logging', version: '3.0.0'
 
