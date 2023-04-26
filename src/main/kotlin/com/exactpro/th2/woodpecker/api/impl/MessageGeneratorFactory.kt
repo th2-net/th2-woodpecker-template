@@ -18,6 +18,8 @@ package com.exactpro.th2.woodpecker.api.impl
 
 import com.exactpro.th2.woodpecker.api.IMessageGeneratorContext
 import com.exactpro.th2.woodpecker.api.IMessageGeneratorFactory
+import com.exactpro.th2.woodpecker.api.impl.raw.RawMessageGenerator
+import com.exactpro.th2.woodpecker.api.impl.raw.RawMessageGeneratorSettings
 
 @Suppress("unused")
 class MessageGeneratorFactory : IMessageGeneratorFactory<RawMessageGeneratorSettings> {

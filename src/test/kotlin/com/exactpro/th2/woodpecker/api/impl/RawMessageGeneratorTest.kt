@@ -18,6 +18,9 @@ package com.exactpro.th2.woodpecker.api.impl
 
 import com.exactpro.th2.common.schema.factory.AbstractCommonFactory
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule
+import com.exactpro.th2.woodpecker.api.impl.raw.RandomGenerator
+import com.exactpro.th2.woodpecker.api.impl.raw.RawMessageGenerator
+import com.exactpro.th2.woodpecker.api.impl.raw.RawMessageGeneratorSettings
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinFeature

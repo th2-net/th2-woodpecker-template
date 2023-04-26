@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.woodpecker.api.impl
+package com.exactpro.th2.woodpecker.api.impl.raw
 
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.Direction.FIRST
@@ -29,17 +29,13 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
 import com.exactpro.th2.woodpecker.api.IMessageGenerator
-import com.exactpro.th2.woodpecker.api.IMessageGeneratorSettings
-import com.exactpro.th2.woodpecker.api.impl.RawMessageGenerator.Companion.RANDOM
-import com.fasterxml.jackson.annotation.JsonAutoDetect
-import com.google.protobuf.ByteString
-import com.google.protobuf.UnsafeByteOperations
 import io.netty.buffer.Unpooled
 import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils.isNotBlank
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction as TransportDirection
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup as TransportMessageGroup
 
@@ -47,35 +43,31 @@ class RawMessageGenerator(
     private val settings: RawMessageGeneratorSettings
 ) : IMessageGenerator<RawMessageGeneratorSettings> {
 
-    private val sessionGroups = (1..settings.sessionGroupNumber).map { num ->
-        SessionGroup(
-            "${settings.sessionGroupPrefix}_$num",
-            (1..settings.sessionAliasNumber).map { SessionAlias("${settings.sessionAliasPrefix}_${num}_$it") }
-        )
+    private val defaultContext = Context(settings)
+
+    private val activeContext = AtomicReference(defaultContext)
+    override fun onStart(settings: RawMessageGeneratorSettings?) {
+        settings?.let {
+            activeContext.set(Context(settings))
+            K_LOGGER.info { "Updated generator settings" }
+        }
     }
 
-    private val builder = MessageGroup.newBuilder().apply {
-        addMessagesBuilder().rawMessageBuilder.apply {
-            metadataBuilder.apply {
-                if (isNotBlank(settings.protocol)) {
-                    protocol = settings.protocol
-                }
+    override fun onStop() {
+        activeContext.getAndSet(defaultContext).also {previous ->
+            if (previous !== defaultContext) {
+                K_LOGGER.info { "Reverted generator settings to default" }
             }
         }
     }
 
-    private val dataGenerator: IDataGenerator = settings.random ?: settings.oneOf ?: error("Neither for data generators is specified")
-
-    init {
-        K_LOGGER.info { "Prepared session groups: $sessionGroups" }
-    }
-
     override fun onNext(size: Int): MessageGroupBatch = MessageGroupBatch.newBuilder().apply {
-        val sessionGroup = sessionGroups.random()
+        val context = activeContext.get()
+        val sessionGroup = context.sessionGroups.random()
         repeat(size) {
             val sessionAlias = sessionGroup.aliases.random()
-            val direction = dataGenerator.directions.random()
-            addGroups(builder.apply {
+            val direction = context.dataGenerator.directions.random()
+            addGroups(context.builder.apply {
                 getMessagesBuilder(0).rawMessageBuilder.run {
                     metadataBuilder.apply {
                         idBuilder.apply {
@@ -90,7 +82,7 @@ class RawMessageGenerator(
 
                     }
                     this.direction = direction
-                    this.body = dataGenerator.nextByteString(direction)
+                    this.body = context.dataGenerator.nextByteString(direction)
                 }
             }.build())
         }
@@ -98,13 +90,14 @@ class RawMessageGenerator(
     }.build()
 
     override fun onNextDemo(size: Int): GroupBatch {
-        val group = sessionGroups.random()
+        val context = activeContext.get()
+        val group = context.sessionGroups.random()
         return GroupBatch(
             settings.bookName,
             group.name,
             generateSequence {
                 val alias = group.aliases.random()
-                val direction = dataGenerator.directions.random()
+                val direction = context.dataGenerator.directions.random()
                 TransportMessageGroup(
                     mutableListOf(
                         RawMessage(
@@ -115,7 +108,7 @@ class RawMessageGenerator(
                                 timestamp = Instant.now()
                             ),
                             protocol = settings.protocol ?: "",
-                            body = Unpooled.wrappedBuffer(dataGenerator.nextByteArray(direction))
+                            body = Unpooled.wrappedBuffer(context.dataGenerator.nextByteArray(direction))
                         )
                     )
                 )
@@ -124,8 +117,8 @@ class RawMessageGenerator(
     }
 
     companion object {
-        private val K_LOGGER = KotlinLogging.logger {  }
         internal val RANDOM = Random()
+        private val K_LOGGER = KotlinLogging.logger {  }
 
         val Direction.transport: TransportDirection
             get() = when(this) {
@@ -133,6 +126,37 @@ class RawMessageGenerator(
                 SECOND -> OUTGOING
                 else -> error("Unsupported $this direction")
             }
+    }
+}
+
+class Context(
+    settings: RawMessageGeneratorSettings
+) {
+    val sessionGroups = (1..settings.sessionGroupNumber).map { num ->
+        SessionGroup(
+            "${settings.sessionGroupPrefix}_$num",
+            (1..settings.sessionAliasNumber).map { SessionAlias("${settings.sessionAliasPrefix}_${num}_$it") }
+        )
+    }
+
+    val builder: MessageGroup.Builder = MessageGroup.newBuilder().apply {
+        addMessagesBuilder().rawMessageBuilder.apply {
+            metadataBuilder.apply {
+                if (isNotBlank(settings.protocol)) {
+                    protocol = settings.protocol
+                }
+            }
+        }
+    }
+
+    val dataGenerator: IDataGenerator = settings.random ?: settings.oneOf ?: error("Neither for data generators is specified")
+
+    init {
+        K_LOGGER.info { "Prepared session groups: $sessionGroups" }
+    }
+
+    companion object {
+        private val K_LOGGER = KotlinLogging.logger {  }
     }
 }
 
@@ -168,76 +192,4 @@ class SessionAlias(
     override fun toString(): String {
         return "SessionAlias(name='$name', sequences=$sequences)"
     }
-
-}
-
-class RawMessageGeneratorSettings(
-    val bookName: String,
-    val sessionAliasPrefix: String = "session",
-    val sessionAliasNumber: Int = 20,
-    val sessionGroupPrefix: String = "group",
-    val sessionGroupNumber: Int = 20,
-
-    val protocol: String? = "protocol",
-
-    val random: RandomGenerator? = null,
-    val oneOf: OneOfGenerator? = null,
-): IMessageGeneratorSettings
-
-internal interface IDataGenerator {
-    val directions: Set<Direction>
-        get() = DIRECTIONS
-
-    fun nextByteString(direction: Direction): ByteString
-    fun nextByteArray(direction: Direction): ByteArray
-
-    companion object {
-        val DIRECTIONS = setOf(FIRST, SECOND)
-    }
-}
-
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
-class RandomGenerator(
-    private val messageSize: Int = 256
-): IDataGenerator {
-    override fun nextByteString(direction: Direction): ByteString = UnsafeByteOperations.unsafeWrap(nextByteArray(direction))
-    override fun nextByteArray(direction: Direction): ByteArray = ByteArray(messageSize).apply(RANDOM::nextBytes)
-}
-
-class MessageExamples(
-    messages: List<String> = listOf(
-        "8=FIXT.1.1\u00019=5\u000135=D\u000110=111\u0001"
-    ),
-    base64s: List<String> = listOf(
-        Base64.getEncoder().encodeToString("8=FIXT.1.1\u00019=5\u000135=D\u000110=111\u0001".toByteArray())
-    )
-) {
-    init {
-        require(messages.isNotEmpty() || base64s.isNotEmpty()) {
-            "'messages' or 'base64s' options should be filled"
-        }
-    }
-
-    val byteStrings: List<ByteString> = base64s.asSequence()
-        .map(Base64.getDecoder()::decode)
-        .plus(messages.asSequence()
-            .map(String::toByteArray))
-        .map(UnsafeByteOperations::unsafeWrap)
-        .toList()
-
-    val byteArrays: List<ByteArray> = base64s.asSequence()
-        .map(Base64.getDecoder()::decode)
-        .plus(messages.asSequence()
-            .map(String::toByteArray))
-        .toList()
-}
-
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
-class OneOfGenerator(
-    private val directionToExamples: Map<Direction, MessageExamples>
-): IDataGenerator {
-    override fun nextByteString(direction: Direction): ByteString =
-        directionToExamples[direction]?.byteStrings?.random() ?: error("$direction direction is unsupported")
-    override fun nextByteArray(direction: Direction): ByteArray =
-        directionToExamples[direction]?.byteArrays?.random() ?: error("$direction direction is unsupported")
 }
