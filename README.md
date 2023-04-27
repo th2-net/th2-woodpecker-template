@@ -32,8 +32,19 @@ generatorSettings:
   random:
     messageSize: 256
   oneOf:
-    messages:
-      - "8=FIXT.1.19=535=D10=111"
+    directionToExamples:
+      FIRST:
+        messages: 
+        - "test-message-1"
+        base64s:
+        - "dGVzdC1tZXNzYWdlLTI="
+      SECOND: 
+        messages: 
+        - "test-message-3"
+        base64s:
+        - "dGVzdC1tZXNzYWdlLTQ="
+      }
+    }
 ```
 
 ### MQ pins
@@ -73,13 +84,19 @@ spec:
       attributes:
         - subscribe
         - in
-        - group
+        - protobuf-group
     - name: out_messages
       connection-type: mq
       attributes:
         - publish
         - out
-        - group
+        - protobuf-group
+    - name: out_messages
+      connection-type: mq
+      attributes:
+        - publish
+        - out
+        - transport-group
   extended-settings:
     service:
       enabled: false

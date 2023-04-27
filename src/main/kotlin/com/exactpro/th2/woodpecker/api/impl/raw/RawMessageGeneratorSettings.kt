@@ -18,7 +18,7 @@ package com.exactpro.th2.woodpecker.api.impl.raw
 
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.woodpecker.api.IMessageGeneratorSettings
-import com.fasterxml.jackson.annotation.JsonAutoDetect
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.protobuf.ByteString
 import com.google.protobuf.UnsafeByteOperations
 import java.util.*
@@ -48,21 +48,17 @@ interface IDataGenerator {
     }
 }
 
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
-class RandomGenerator(
-    private val messageSize: Int = 256
+
+data class RandomGenerator(
+    val messageSize: Int = 256
 ): IDataGenerator {
     override fun nextByteString(direction: Direction): ByteString = UnsafeByteOperations.unsafeWrap(nextByteArray(direction))
     override fun nextByteArray(direction: Direction): ByteArray = ByteArray(messageSize).apply(RawMessageGenerator.RANDOM::nextBytes)
 }
 
-class MessageExamples(
-    messages: List<String> = listOf(
-        "8=FIXT.1.1\u00019=5\u000135=D\u000110=111\u0001"
-    ),
-    base64s: List<String> = listOf(
-        Base64.getEncoder().encodeToString("8=FIXT.1.1\u00019=5\u000135=D\u000110=111\u0001".toByteArray())
-    )
+data class MessageExamples(
+    val messages: List<String> = emptyList(),
+    val base64s: List<String> = emptyList(),
 ) {
     init {
         require(messages.isNotEmpty() || base64s.isNotEmpty()) {
@@ -70,6 +66,7 @@ class MessageExamples(
         }
     }
 
+    @JsonIgnore
     val byteStrings: List<ByteString> = base64s.asSequence()
         .map(Base64.getDecoder()::decode)
         .plus(messages.asSequence()
@@ -77,6 +74,7 @@ class MessageExamples(
         .map(UnsafeByteOperations::unsafeWrap)
         .toList()
 
+    @JsonIgnore
     val byteArrays: List<ByteArray> = base64s.asSequence()
         .map(Base64.getDecoder()::decode)
         .plus(messages.asSequence()
@@ -84,10 +82,10 @@ class MessageExamples(
         .toList()
 }
 
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
-class OneOfGenerator(
-    private val directionToExamples: Map<Direction, MessageExamples>
+data class OneOfGenerator(
+    val directionToExamples: Map<Direction, MessageExamples>
 ): IDataGenerator {
+    @JsonIgnore
     override val directions: Set<Direction> = directionToExamples.keys
     override fun nextByteString(direction: Direction): ByteString =
         directionToExamples[direction]?.byteStrings?.random() ?: error("$direction direction is unsupported")

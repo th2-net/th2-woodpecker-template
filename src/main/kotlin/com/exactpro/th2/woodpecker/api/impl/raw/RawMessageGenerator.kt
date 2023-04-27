@@ -89,7 +89,7 @@ class RawMessageGenerator(
 
     }.build()
 
-    override fun onNextDemo(size: Int): GroupBatch {
+    override fun onNextTransport(size: Int): GroupBatch {
         val context = activeContext.get()
         val group = context.sessionGroups.random()
         return GroupBatch(
@@ -172,24 +172,24 @@ class SessionGroup(
 class SessionAlias(
     val name: String
 ) {
-    private val sequences: Map<Direction, AtomicLong>
-    private val demoSequences: Map<TransportDirection, AtomicLong>
+    private val protoSequences: Map<Direction, AtomicLong>
+    private val transportSequences: Map<TransportDirection, AtomicLong>
     init {
-        sequences = EnumMap<Direction, AtomicLong>(Direction::class.java).apply {
+        protoSequences = EnumMap<Direction, AtomicLong>(Direction::class.java).apply {
             Direction.values().forEach {
                 put(it, AtomicLong(System.currentTimeMillis() * 1_000_000L))
             }
         }
-        demoSequences = EnumMap<TransportDirection, AtomicLong>(TransportDirection::class.java).apply {
+        transportSequences = EnumMap<TransportDirection, AtomicLong>(TransportDirection::class.java).apply {
             TransportDirection.values().forEach {
                 put(it, AtomicLong(System.currentTimeMillis() * 1_000_000L))
             }
         }
     }
 
-    fun next(direction: Direction): Long = sequences[direction]?.incrementAndGet() ?: error("Sequence for the $direction direction isn't found")
-    fun next(direction: TransportDirection): Long = demoSequences[direction]?.incrementAndGet() ?: error("Sequence for the $direction direction isn't found")
+    fun next(direction: Direction): Long = protoSequences[direction]?.incrementAndGet() ?: error("Sequence for the $direction direction isn't found")
+    fun next(direction: TransportDirection): Long = transportSequences[direction]?.incrementAndGet() ?: error("Sequence for the $direction direction isn't found")
     override fun toString(): String {
-        return "SessionAlias(name='$name', sequences=$sequences)"
+        return "SessionAlias(name='$name', sequences=$protoSequences)"
     }
 }

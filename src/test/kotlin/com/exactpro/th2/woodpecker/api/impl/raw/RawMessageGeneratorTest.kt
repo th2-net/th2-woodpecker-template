@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.woodpecker.api.impl
+package com.exactpro.th2.woodpecker.api.impl.raw
 
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.schema.factory.AbstractCommonFactory
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArray
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule
-import com.exactpro.th2.woodpecker.api.impl.raw.RandomGenerator
-import com.exactpro.th2.woodpecker.api.impl.raw.RawMessageGenerator
-import com.exactpro.th2.woodpecker.api.impl.raw.RawMessageGeneratorSettings
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinFeature
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import org.junit.jupiter.api.Test
+import java.util.Base64
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
@@ -36,6 +37,25 @@ class RawMessageGeneratorTest {
         val generator = RawMessageGenerator(RawMessageGeneratorSettings("book", random = RandomGenerator()))
         val batch = generator.onNext(100)
         assertEquals(100, batch.groupsCount)
+    }
+
+    @Test
+    fun base64Test() {
+        val message = "test-message"
+        val generator = RawMessageGenerator(RawMessageGeneratorSettings(
+            "book",
+            oneOf = OneOfGenerator(
+                mapOf(
+                    Direction.FIRST to MessageExamples(
+                        base64s = listOf(Base64.getEncoder().encodeToString(message.toByteArray()))
+                    )
+                )
+            ),
+        ))
+        for(i in 0 .. 10) {
+            val batch = generator.onNextTransport(1)
+            assertEquals(message, String((batch.groups.first().messages.first() as RawMessage).body.toByteArray()))
+        }
     }
 
     @Test
