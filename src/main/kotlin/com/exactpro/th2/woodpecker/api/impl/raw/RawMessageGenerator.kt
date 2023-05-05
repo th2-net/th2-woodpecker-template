@@ -30,6 +30,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
 import com.exactpro.th2.woodpecker.api.IMessageGenerator
 import io.netty.buffer.Unpooled
+import io.prometheus.client.Counter
 import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils.isNotBlank
 import java.time.Instant
@@ -133,9 +134,10 @@ class Context(
     settings: RawMessageGeneratorSettings
 ) {
     val sessionGroups = (1..settings.sessionGroupNumber).map { num ->
+        val group = "${settings.sessionGroupPrefix}_$num"
         SessionGroup(
-            "${settings.sessionGroupPrefix}_$num",
-            (1..settings.sessionAliasNumber).map { SessionAlias("${settings.sessionAliasPrefix}_${num}_$it") }
+            group,
+            (1..settings.sessionAliasNumber).map { SessionAlias(group, "${settings.sessionAliasPrefix}_${num}_$it") }
         )
     }
 
@@ -170,10 +172,15 @@ class SessionGroup(
 }
 
 class SessionAlias(
+    group: String,
     val name: String
 ) {
     private val protoSequences: Map<Direction, AtomicLong>
     private val transportSequences: Map<TransportDirection, AtomicLong>
+    private val counter = EnumMap<Direction, Counter.Child>(Direction::class.java).apply {
+        put(FIRST, GENERATED_MESSAGES_TOTAL.labels(group, name, FIRST.name, "TRANSPORT_RAW"))
+        put(SECOND, GENERATED_MESSAGES_TOTAL.labels(group, name, SECOND.name, "TRANSPORT_RAW"))
+    }
     init {
         protoSequences = EnumMap<Direction, AtomicLong>(Direction::class.java).apply {
             Direction.values().forEach {
@@ -187,9 +194,19 @@ class SessionAlias(
         }
     }
 
-    fun next(direction: Direction): Long = protoSequences[direction]?.incrementAndGet() ?: error("Sequence for the $direction direction isn't found")
+    fun next(direction: Direction): Long = protoSequences[direction]?.incrementAndGet().also {
+        counter[direction]?.inc()
+    } ?: error("Sequence for the $direction direction isn't found")
     fun next(direction: TransportDirection): Long = transportSequences[direction]?.incrementAndGet() ?: error("Sequence for the $direction direction isn't found")
     override fun toString(): String {
         return "SessionAlias(name='$name', sequences=$protoSequences)"
+    }
+
+    companion object {
+        private val GENERATED_MESSAGES_TOTAL: Counter = Counter.build()
+            .name("th2_woodpecker_generated_messages_total")
+            .labelNames("session_group", "session_alias", "direction", "th2_type")
+            .help("Total number of consuming particular gRPC method")
+            .register()
     }
 }
