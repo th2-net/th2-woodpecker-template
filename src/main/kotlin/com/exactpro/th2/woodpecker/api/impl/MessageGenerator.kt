@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,11 +25,10 @@ import com.exactpro.th2.common.message.sequence
 import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.woodpecker.api.IMessageGenerator
-import com.exactpro.th2.woodpecker.api.IMessageGeneratorSettings
 import java.time.Instant
 
 @Suppress("unused")
-class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator<MessageGeneratorSettings> {
+class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator<GeneratorSettings> {
     private val builder = MessageGroup.newBuilder().apply {
         addMessagesBuilder().message = settings.fields.toProtoBuilder().apply {
             messageType = settings.messageType
@@ -56,7 +55,7 @@ class MessageGenerator(settings: MessageGeneratorSettings) : IMessageGenerator<M
     }.build()
 }
 
-class MessageGeneratorSettings : IMessageGeneratorSettings {
+class MessageGeneratorSettings {
     val messageType: String = "type"
     val protocol: String = "protocol"
     val sessionAlias: String = "session"

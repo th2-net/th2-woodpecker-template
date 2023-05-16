@@ -17,7 +17,6 @@
 package com.exactpro.th2.woodpecker.api.impl.raw
 
 import com.exactpro.th2.common.grpc.Direction
-import com.exactpro.th2.woodpecker.api.IMessageGeneratorSettings
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.protobuf.ByteString
 import com.google.protobuf.UnsafeByteOperations
@@ -34,7 +33,7 @@ class RawMessageGeneratorSettings(
 
     val random: RandomGenerator? = null,
     val oneOf: OneOfGenerator? = null,
-): IMessageGeneratorSettings
+)
 
 interface IDataGenerator {
     val directions: Set<Direction>

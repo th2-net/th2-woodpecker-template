@@ -16,13 +16,16 @@
 
 package com.exactpro.th2.woodpecker.api.impl
 
+import com.exactpro.th2.woodpecker.api.IGeneratorFactory
 import com.exactpro.th2.woodpecker.api.IMessageGeneratorContext
-import com.exactpro.th2.woodpecker.api.IMessageGeneratorFactory
+import com.exactpro.th2.woodpecker.api.event.IEventGeneratorContext
+import com.exactpro.th2.woodpecker.api.impl.event.EventGenerator
 import com.exactpro.th2.woodpecker.api.impl.raw.RawMessageGenerator
-import com.exactpro.th2.woodpecker.api.impl.raw.RawMessageGeneratorSettings
 
 @Suppress("unused")
-class MessageGeneratorFactory : IMessageGeneratorFactory<RawMessageGeneratorSettings> {
-    override val settingsClass = RawMessageGeneratorSettings::class.java
-    override fun createGenerator(context: IMessageGeneratorContext<RawMessageGeneratorSettings>): RawMessageGenerator = RawMessageGenerator(context.settings)
+class GeneratorFactory : IGeneratorFactory<GeneratorSettings> {
+    override val settingsClass = GeneratorSettings::class.java
+    override fun createMessageGenerator(context: IMessageGeneratorContext<GeneratorSettings>): RawMessageGenerator = RawMessageGenerator(context.settings.messageGeneratorSettings)
+    override fun createEventGenerator(context: IEventGeneratorContext<GeneratorSettings>): EventGenerator = EventGenerator(context.settings.eventGeneratorSettings)
+
 }
