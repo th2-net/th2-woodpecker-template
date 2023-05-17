@@ -16,7 +16,15 @@
 
 package com.exactpro.th2.woodpecker.api.impl.event
 
-
 class EventGeneratorSettings(
-    val someEventSetting: String, //TODO
+    val generationMode: GenerationMode = GenerationMode.SINGLE_ROOT,
+    val treeDepth: Int = 3,
+    val leafDepth: Int = 50,
+    val childCount: Int = 2,
+    val failureRate: Int = 5, //how many events to fail in 1000 events
+    val descriptionLength: Int = 200
 )
+
+enum class GenerationMode {
+    SINGLE_ROOT, MULTI_ROOT, MIXED
+}

@@ -16,43 +16,80 @@
 
 package com.exactpro.th2.woodpecker.api.impl.event
 
-import com.exactpro.th2.common.grpc.Direction
-import com.exactpro.th2.common.grpc.Direction.FIRST
-import com.exactpro.th2.common.grpc.Direction.SECOND
+import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.event.Event.start
 import com.exactpro.th2.common.grpc.EventBatch
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.INCOMING
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.OUTGOING
 import com.exactpro.th2.woodpecker.api.event.IEventGenerator
 import com.exactpro.th2.woodpecker.api.impl.GeneratorSettings
 import mu.KotlinLogging
-import java.util.*
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction as TransportDirection
+import java.util.LinkedList
+import java.util.Queue
 
 class EventGenerator(
-    private val settings: EventGeneratorSettings
+    settings: EventGeneratorSettings
 ) : IEventGenerator<GeneratorSettings> {
 
+    private var context = Context(settings)
+
     override fun onStart(settings: GeneratorSettings?) {
-        K_LOGGER.info { "Started EventGenerator" }
+        settings?.let {
+            context = Context(settings.eventGeneratorSettings)
+            logger.info { "Reset generator settings" }
+        }
     }
 
     override fun onStop() {
-        K_LOGGER.info { "Stopped EventGenerator" }
+        logger.info { "EventGenerator::onStop" }
     }
 
     override fun onNext(size: Int): EventBatch {
-        return EventBatch.newBuilder().build()
+        return EventBatch.newBuilder().apply {
+            repeat(size) {
+                addEvents(
+                    start()
+                        .name(context.nameGenerator())
+                        .description(context.descriptionGenerator())
+                        .type("loader")
+                        .status(context.statusGenerator())
+                        .endTimestamp()
+                        .toProto("ID")
+                )
+            }
+        }.build()
+    }
+
+    fun collectEventTreeIds(eventTree: EventTreeNode): Queue<String> {
+        val eventIdCollector: Queue<String> = LinkedList()
+        EventTreeNode.traverseBreadthFirst(eventTree) { eventIdCollector.add(it.parentId) }
+        EventTreeNode.traverseBreadthFirst(eventTree) { println("id: ${it.id} parent: ${it.parentId}") }
+        return eventIdCollector
+    }
+
+    fun collectLeafIds(eventTree: EventTreeNode): List<String> {
+        val eventIdCollector: MutableList<String> = ArrayList()
+        EventTreeNode.findLeaves(eventTree) { eventIdCollector.add(it.id) }
+        EventTreeNode.findLeaves(eventTree) { println("id: ${it.id}") }
+        return eventIdCollector
     }
 
     companion object {
-        internal val RANDOM = Random()
-        private val K_LOGGER = KotlinLogging.logger { }
+        private val logger = KotlinLogging.logger { }
+    }
+}
 
-        val Direction.transport: TransportDirection
-            get() = when (this) {
-                FIRST -> INCOMING
-                SECOND -> OUTGOING
-                else -> error("Unsupported $this direction")
-            }
+private class Context(
+    settings: EventGeneratorSettings
+) {
+    val generator = Generator()
+    val statusGenerator: () -> Event.Status = { generator.generateStatus(settings.failureRate) }
+    val descriptionGenerator: () -> String = { generator.generateStringSizeOf(settings.descriptionLength) }
+    val nameGenerator: () -> String = generator::generateIdString
+
+    fun getBatchId(): String{
+     return ""
+    }
+
+    fun getParentId(): String{
+        return ""
     }
 }

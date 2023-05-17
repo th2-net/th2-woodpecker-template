@@ -57,7 +57,7 @@ dependencies {
     api platform('com.exactpro.th2:bom:4.2.0')
 
     implementation 'com.exactpro.th2:common:5.2.0-separate-executor-4807123825-9449978-SNAPSHOT'
-    implementation 'com.exactpro.th2:woodpecker:2.0.0-demo-router-4817949420-60fc332-SNAPSHOT'
+    implementation 'com.exactpro.th2:woodpecker:2.0.0-event-router-4993159383-fd7430c-SNAPSHOT'
     implementation 'com.exactpro.th2:grpc-woodpecker:2.0.0-dev'
 
     implementation 'org.slf4j:slf4j-api'
