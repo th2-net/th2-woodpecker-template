@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.woodpecker.api.impl.event
+package com.exactpro.th2.woodpecker.api.impl.event.provider
 
-class EventGeneratorSettings(
-    val bookName: String = "default_book",
-    val scope: String = "default_scope",
-    val generationMode: GenerationMode = GenerationMode.SINGLE_ROOT,
-    val treeDepth: Int = 3,
-    val childCount: Int = 2,
-    val failureRate: Int = 5, //how many events to fail in 1000 events
-    val descriptionLength: Int = 200
-)
+import com.exactpro.th2.common.grpc.Event
+import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.woodpecker.api.impl.event.EventGeneratorSettings
 
-enum class GenerationMode {
-    SINGLE_ROOT, MULTI_ROOT, MIXED
+class MultiRootEventProvider(settings: EventGeneratorSettings) : EventProvider(settings) {
+    override fun getParentEventIdForBatch(): EventID {
+        TODO("Not yet implemented")
+    }
+
+    override fun nextEvent(): Event {
+        TODO("Not yet implemented")
+    }
+
 }

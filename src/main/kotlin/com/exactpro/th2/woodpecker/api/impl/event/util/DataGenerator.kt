@@ -14,18 +14,23 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.woodpecker.api.impl.event
+package com.exactpro.th2.woodpecker.api.impl.event.util
 
-class EventGeneratorSettings(
-    val bookName: String = "default_book",
-    val scope: String = "default_scope",
-    val generationMode: GenerationMode = GenerationMode.SINGLE_ROOT,
-    val treeDepth: Int = 3,
-    val childCount: Int = 2,
-    val failureRate: Int = 5, //how many events to fail in 1000 events
-    val descriptionLength: Int = 200
-)
+import com.exactpro.th2.common.event.Event
+import java.util.*
 
-enum class GenerationMode {
-    SINGLE_ROOT, MULTI_ROOT, MIXED
+object DataGenerator {
+    private val RANDOM: Random = Random()
+
+    fun generateStatus(failureRate: Int): Event.Status {
+        return if (RANDOM.nextInt(1000) > failureRate) Event.Status.PASSED else Event.Status.FAILED
+    }
+
+    fun generateStringSizeOf(length: Int): String {
+        return String(ByteArray(length).apply(RANDOM::nextBytes))
+    }
+
+    fun generateIdString(): String {
+        return UUID.randomUUID().toString()
+    }
 }

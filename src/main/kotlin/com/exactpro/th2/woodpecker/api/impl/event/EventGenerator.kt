@@ -16,20 +16,22 @@
 
 package com.exactpro.th2.woodpecker.api.impl.event
 
-import com.exactpro.th2.common.event.Event
-import com.exactpro.th2.common.event.Event.start
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.woodpecker.api.event.IEventGenerator
 import com.exactpro.th2.woodpecker.api.impl.GeneratorSettings
+import com.exactpro.th2.woodpecker.api.impl.event.provider.EventProvider
+import com.exactpro.th2.woodpecker.api.impl.event.provider.MixedEventProvider
+import com.exactpro.th2.woodpecker.api.impl.event.provider.MultiRootEventProvider
+import com.exactpro.th2.woodpecker.api.impl.event.provider.SingleRootEventProvider
 import mu.KotlinLogging
-import java.util.LinkedList
-import java.util.Queue
+import kotlin.math.pow
 
 class EventGenerator(
-    settings: EventGeneratorSettings
+    val settings: EventGeneratorSettings
 ) : IEventGenerator<GeneratorSettings> {
-
+    private val logger = KotlinLogging.logger { }
     private var context = Context(settings)
+    private val treeSize = calculateTreeSize()
 
     override fun onStart(settings: GeneratorSettings?) {
         settings?.let {
@@ -43,53 +45,40 @@ class EventGenerator(
     }
 
     override fun onNext(size: Int): EventBatch {
-        return EventBatch.newBuilder().apply {
+        if (treeSize > size) {
+            throw RuntimeException("batch size can't be less than initial event tree size")
+        }
+        val batchId = context.getParentEventIdForBatch() //batch id needs to be called before getting event ids
+        val eventBatch = EventBatch.newBuilder().apply {
             repeat(size) {
                 addEvents(
-                    start()
-                        .name(context.nameGenerator())
-                        .description(context.descriptionGenerator())
-                        .type("loader")
-                        .status(context.statusGenerator())
-                        .endTimestamp()
-                        .toProto("ID")
+                    context.nextEvent()
                 )
             }
-        }.build()
+        }.setParentEventId(batchId).build()
+        context.finishedBatch()
+        return eventBatch
     }
 
-    fun collectEventTreeIds(eventTree: EventTreeNode): Queue<String> {
-        val eventIdCollector: Queue<String> = LinkedList()
-        EventTreeNode.traverseBreadthFirst(eventTree) { eventIdCollector.add(it.parentId) }
-        EventTreeNode.traverseBreadthFirst(eventTree) { println("id: ${it.id} parent: ${it.parentId}") }
-        return eventIdCollector
-    }
-
-    fun collectLeafIds(eventTree: EventTreeNode): List<String> {
-        val eventIdCollector: MutableList<String> = ArrayList()
-        EventTreeNode.findLeaves(eventTree) { eventIdCollector.add(it.id) }
-        EventTreeNode.findLeaves(eventTree) { println("id: ${it.id}") }
-        return eventIdCollector
-    }
-
-    companion object {
-        private val logger = KotlinLogging.logger { }
+    private fun calculateTreeSize(): Double {
+        val childCount = settings.childCount.toDouble()
+        val depth = settings.treeDepth
+        return ((childCount.pow(depth + 1)) - 1) / (childCount - 1)
     }
 }
 
 private class Context(
     settings: EventGeneratorSettings
 ) {
-    val generator = Generator()
-    val statusGenerator: () -> Event.Status = { generator.generateStatus(settings.failureRate) }
-    val descriptionGenerator: () -> String = { generator.generateStringSizeOf(settings.descriptionLength) }
-    val nameGenerator: () -> String = generator::generateIdString
-
-    fun getBatchId(): String{
-     return ""
+    private val eventProvider: EventProvider = when (settings.generationMode) {
+        GenerationMode.SINGLE_ROOT -> SingleRootEventProvider(settings)
+        GenerationMode.MULTI_ROOT -> MultiRootEventProvider(settings)
+        GenerationMode.MIXED -> MixedEventProvider(settings)
     }
 
-    fun getParentId(): String{
-        return ""
+    fun finishedBatch(){
+        eventProvider.finishedBatch()
     }
+    fun nextEvent() = eventProvider.nextEvent()
+    fun getParentEventIdForBatch() = eventProvider.getParentEventIdForBatch()
 }
