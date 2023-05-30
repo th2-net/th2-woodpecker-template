@@ -17,13 +17,13 @@
 package com.exactpro.th2.woodpecker.api.impl.event
 
 import com.exactpro.th2.common.grpc.Event
-import com.exactpro.th2.woodpecker.api.impl.event.provider.EventProvider
+import com.exactpro.th2.woodpecker.api.impl.event.provider.EventBatchProvider
 
 class EventTreeNode(
     val event: Event,
     val children: MutableList<EventTreeNode> = mutableListOf()
 ) {
-    fun addChildren(childCount: Int, eventProvider: EventProvider) {
+    fun addChildren(childCount: Int, eventProvider: EventBatchProvider) {
         repeat(childCount) {
             children.add(
                 EventTreeNode(eventProvider.eventWithParentId(this.event.id))
@@ -32,7 +32,7 @@ class EventTreeNode(
     }
 
     companion object {
-        fun growTree(node: EventTreeNode, childCount: Int, eventProvider: EventProvider) {
+        fun growTree(node: EventTreeNode, childCount: Int, eventProvider: EventBatchProvider) {
             if (node.children.isEmpty()) {
                 node.addChildren(childCount, eventProvider)
             } else {

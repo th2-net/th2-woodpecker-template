@@ -23,7 +23,8 @@ class EventGeneratorSettings(
     val treeDepth: Int = 3,
     val childCount: Int = 2,
     val failureRate: Int = 5, //how many events to fail in 1000 events
-    val descriptionLength: Int = 200
+    val descriptionLength: Int = 200,
+    val bodyDataLength: Int = 200
 )
 
 enum class GenerationMode {

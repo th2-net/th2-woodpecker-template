@@ -16,35 +16,39 @@
 
 package com.exactpro.th2.woodpecker.api.impl.event.provider
 
-import com.exactpro.th2.common.grpc.Event
-import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.woodpecker.api.impl.event.EventGeneratorSettings
 
-class SingleRootEventProvider(settings: EventGeneratorSettings) : EventProvider(settings) {
+class SingleRootEventBatchProvider(settings: EventGeneratorSettings) : EventBatchProvider(settings) {
     private val initialTree = createEventTree()
     private val eventQueue = enqueueEvents(initialTree)
     private val leafIds = collectLeafIds(initialTree)
-    private var batchId: EventID = toEventID("")
-
-    //for the first batch we want EventID to be empty, so we can create root event
-    //the first batch will also fully create initial event tree
-    //after that each new batch will be attached to one of the leaf nodes of the initial event tree
-    override fun getParentEventIdForBatch(): EventID {
-        if (firstBatch) {
-            return batchId
-        }
-        batchId = leafIds.random()
-        return batchId
-    }
+    private var firstBatch = true
 
     //for the first batch we want to create initial event tree, so we get parent ids form a predefined set of ids
     //if batch is bigger thant initial event tree, the remaining events will be attached to random leaves
     //for the all consecutive batches we are attaching all events to the same random leaf node of the initial event tree
-    override fun nextEvent(): Event {
-        return if (firstBatch) {
-            if (eventQueue.isNotEmpty()) eventQueue.remove() else eventWithParentId(leafIds.random())
-        } else {
-            eventWithParentId(batchId)
+    override fun nextBatch(batchSize: Int): EventBatch {
+        if (firstBatch) {
+            return firstBatch(batchSize)
         }
+        val batchId = leafIds.random()
+        return EventBatch.newBuilder().apply {
+            repeat(batchSize) {
+                addEvents(eventWithParentId(batchId))
+            }
+        }.setParentEventId(batchId).build()
+    }
+
+    @Synchronized
+    private fun firstBatch(batchSize: Int): EventBatch {
+        firstBatch = false
+        val eventQueueLength = eventQueue.size
+        return EventBatch.newBuilder().apply {
+            addAllEvents(eventQueue)
+            repeat(batchSize - eventQueueLength) {
+                addEvents(eventWithParentId(leafIds.random()))
+            }
+        }.setParentEventId(toEventID("")).build()
     }
 }

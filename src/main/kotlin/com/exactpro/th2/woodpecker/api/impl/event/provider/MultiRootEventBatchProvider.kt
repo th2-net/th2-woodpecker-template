@@ -16,17 +16,11 @@
 
 package com.exactpro.th2.woodpecker.api.impl.event.provider
 
-import com.exactpro.th2.common.grpc.Event
-import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.woodpecker.api.impl.event.EventGeneratorSettings
 
-class MultiRootEventProvider(settings: EventGeneratorSettings) : EventProvider(settings) {
-    override fun getParentEventIdForBatch(): EventID {
+class MultiRootEventBatchProvider(settings: EventGeneratorSettings) : EventBatchProvider(settings) {
+    override fun nextBatch(batchSize: Int): EventBatch {
         TODO("Not yet implemented")
     }
-
-    override fun nextEvent(): Event {
-        TODO("Not yet implemented")
-    }
-
 }

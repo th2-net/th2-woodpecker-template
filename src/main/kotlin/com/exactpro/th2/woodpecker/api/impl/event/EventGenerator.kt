@@ -19,45 +19,43 @@ package com.exactpro.th2.woodpecker.api.impl.event
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.woodpecker.api.event.IEventGenerator
 import com.exactpro.th2.woodpecker.api.impl.GeneratorSettings
-import com.exactpro.th2.woodpecker.api.impl.event.provider.EventProvider
-import com.exactpro.th2.woodpecker.api.impl.event.provider.MixedEventProvider
-import com.exactpro.th2.woodpecker.api.impl.event.provider.MultiRootEventProvider
-import com.exactpro.th2.woodpecker.api.impl.event.provider.SingleRootEventProvider
+import com.exactpro.th2.woodpecker.api.impl.event.provider.EventBatchProvider
+import com.exactpro.th2.woodpecker.api.impl.event.provider.MixedEventBatchProvider
+import com.exactpro.th2.woodpecker.api.impl.event.provider.MultiRootEventBatchProvider
+import com.exactpro.th2.woodpecker.api.impl.event.provider.SingleRootEventBatchProvider
+import com.exactpro.th2.woodpecker.api.impl.raw.RawMessageGenerator
 import mu.KotlinLogging
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.pow
 
 class EventGenerator(
     val settings: EventGeneratorSettings
 ) : IEventGenerator<GeneratorSettings> {
-    private val logger = KotlinLogging.logger { }
-    private var context = Context(settings)
+    private val defaultContext = Context(settings)
+
+    private val activeContext = AtomicReference(defaultContext)
     private val treeSize = calculateTreeSize()
 
     override fun onStart(settings: GeneratorSettings?) {
         settings?.let {
-            context = Context(settings.eventGeneratorSettings)
-            logger.info { "Reset generator settings" }
+            activeContext.set(Context(settings.eventGeneratorSettings))
+            logger.info { "Updated event generator settings" }
         }
     }
 
     override fun onStop() {
-        logger.info { "EventGenerator::onStop" }
+        activeContext.getAndSet(defaultContext).also {previous ->
+            if (previous !== defaultContext) {
+                logger.info { "Reverted event generator settings to default" }
+            }
+        }
     }
 
     override fun onNext(size: Int): EventBatch {
         if (treeSize > size) {
             throw RuntimeException("batch size can't be less than initial event tree size")
         }
-        val batchId = context.getParentEventIdForBatch() //batch id needs to be called before getting event ids
-        val eventBatch = EventBatch.newBuilder().apply {
-            repeat(size) {
-                addEvents(
-                    context.nextEvent()
-                )
-            }
-        }.setParentEventId(batchId).build()
-        context.finishedBatch()
-        return eventBatch
+        return activeContext.get().nextBatch(size)
     }
 
     private fun calculateTreeSize(): Double {
@@ -65,20 +63,20 @@ class EventGenerator(
         val depth = settings.treeDepth
         return ((childCount.pow(depth + 1)) - 1) / (childCount - 1)
     }
+
+    companion object {
+        private val logger = KotlinLogging.logger { }
+    }
 }
 
 private class Context(
     settings: EventGeneratorSettings
 ) {
-    private val eventProvider: EventProvider = when (settings.generationMode) {
-        GenerationMode.SINGLE_ROOT -> SingleRootEventProvider(settings)
-        GenerationMode.MULTI_ROOT -> MultiRootEventProvider(settings)
-        GenerationMode.MIXED -> MixedEventProvider(settings)
+    private val eventBatchProvider: EventBatchProvider = when (settings.generationMode) {
+        GenerationMode.SINGLE_ROOT -> SingleRootEventBatchProvider(settings)
+        GenerationMode.MULTI_ROOT -> MultiRootEventBatchProvider(settings)
+        GenerationMode.MIXED -> MixedEventBatchProvider(settings)
     }
 
-    fun finishedBatch(){
-        eventProvider.finishedBatch()
-    }
-    fun nextEvent() = eventProvider.nextEvent()
-    fun getParentEventIdForBatch() = eventProvider.getParentEventIdForBatch()
+    fun nextBatch(batchSize: Int) = eventBatchProvider.nextBatch(batchSize)
 }
