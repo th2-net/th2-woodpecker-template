@@ -103,7 +103,7 @@ docker {
 
 serviceLoader {
     serviceInterface 'com.exactpro.th2.woodpecker.api.IMessageGenerator'
-    serviceInterface 'com.exactpro.th2.woodpecker.api.IMessageGeneratorFactory'
+    serviceInterface 'com.exactpro.th2.woodpecker.api.IGeneratorFactory'
 }
 
 configurations {
