@@ -21,6 +21,6 @@ import com.exactpro.th2.woodpecker.api.impl.event.EventGeneratorSettings
 import com.exactpro.th2.woodpecker.api.impl.raw.RawMessageGeneratorSettings
 
 class GeneratorSettings(
-    val messageGeneratorSettings: RawMessageGeneratorSettings,
-    val eventGeneratorSettings: EventGeneratorSettings
+    val messageGeneratorSettings: RawMessageGeneratorSettings = RawMessageGeneratorSettings(),
+    val eventGeneratorSettings: EventGeneratorSettings = EventGeneratorSettings()
 ) : IGeneratorSettings

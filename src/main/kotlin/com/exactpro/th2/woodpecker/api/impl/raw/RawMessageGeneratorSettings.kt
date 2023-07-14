@@ -23,7 +23,7 @@ import com.google.protobuf.UnsafeByteOperations
 import java.util.*
 
 class RawMessageGeneratorSettings(
-    val bookName: String,
+    val bookName: String = "default_book",
     val sessionAliasPrefix: String = "session",
     val sessionAliasNumber: Int = 20,
     val sessionGroupPrefix: String = "group",
