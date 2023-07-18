@@ -28,7 +28,9 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
+import com.exactpro.th2.woodpecker.api.IGeneratorSettings
 import com.exactpro.th2.woodpecker.api.IMessageGenerator
+import com.exactpro.th2.woodpecker.api.impl.GeneratorSettings
 import io.netty.buffer.Unpooled
 import io.prometheus.client.Counter
 import mu.KotlinLogging
@@ -42,14 +44,14 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGro
 
 class RawMessageGenerator(
     private val settings: RawMessageGeneratorSettings
-) : IMessageGenerator<RawMessageGeneratorSettings> {
+) : IMessageGenerator<GeneratorSettings> {
 
     private val defaultContext = Context(settings)
 
     private val activeContext = AtomicReference(defaultContext)
-    override fun onStart(settings: RawMessageGeneratorSettings?) {
+    override fun onStart(settings: GeneratorSettings?) {
         settings?.let {
-            activeContext.set(Context(settings))
+            activeContext.set(Context(settings.messageGeneratorSettings))
             K_LOGGER.info { "Updated generator settings" }
         }
     }
